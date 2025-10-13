@@ -1,0 +1,733 @@
+<html>
+<head>
+<title>nasdaq_extended.ui</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+nasdaq_extended.ui</font>
+</center></td></tr></table>
+<pre><span class="s0">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<span class="s0">&lt;ui version=&quot;4.0&quot;&gt;</span>
+ <span class="s0">&lt;class&gt;MainWindow&lt;/class&gt;</span>
+ <span class="s0">&lt;widget class=&quot;QMainWindow&quot; name=&quot;MainWindow&quot;&gt;</span>
+  <span class="s0">&lt;property name=&quot;geometry&quot;&gt;</span>
+   <span class="s0">&lt;rect&gt;</span>
+    <span class="s0">&lt;x&gt;0&lt;/x&gt;</span>
+    <span class="s0">&lt;y&gt;0&lt;/y&gt;</span>
+    <span class="s0">&lt;width&gt;2125&lt;/width&gt;</span>
+    <span class="s0">&lt;height&gt;1076&lt;/height&gt;</span>
+   <span class="s0">&lt;/rect&gt;</span>
+  <span class="s0">&lt;/property&gt;</span>
+  <span class="s0">&lt;property name=&quot;windowTitle&quot;&gt;</span>
+   <span class="s0">&lt;string&gt;나스닥100 호가창 예제 (확장형)&lt;/string&gt;</span>
+  <span class="s0">&lt;/property&gt;</span>
+  <span class="s0">&lt;widget class=&quot;QWidget&quot; name=&quot;centralwidget&quot;&gt;</span>
+   <span class="s0">&lt;layout class=&quot;QHBoxLayout&quot; name=&quot;mainLayout&quot;&gt;</span>
+    <span class="s0">&lt;item&gt;</span>
+     <span class="s0">&lt;widget class=&quot;QFrame&quot; name=&quot;frame_left&quot;&gt;</span>
+      <span class="s0">&lt;property name=&quot;frameShape&quot;&gt;</span>
+       <span class="s0">&lt;enum&gt;QFrame::StyledPanel&lt;/enum&gt;</span>
+      <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;layout class=&quot;QVBoxLayout&quot; name=&quot;verticalLayout_left&quot;&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+          <span class="s0">&lt;sizepolicy hsizetype=&quot;Expanding&quot; vsizetype=&quot;Fixed&quot;&gt;</span>
+           <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+           <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+          <span class="s0">&lt;/sizepolicy&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QFrame&quot; name=&quot;frame_top&quot;&gt;</span>
+         <span class="s0">&lt;layout class=&quot;QHBoxLayout&quot; name=&quot;horizontalLayout_top&quot;&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QLabel&quot; name=&quot;label_market&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;나스닥100&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QLabel&quot; name=&quot;label_price&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;24,590.50&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QLabel&quot; name=&quot;label_change&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;▲ 38.75  -0.16%&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;spacer name=&quot;horizontalSpacer&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;orientation&quot;&gt;</span>
+             <span class="s0">&lt;enum&gt;Qt::Horizontal&lt;/enum&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+            <span class="s0">&lt;property name=&quot;sizeHint&quot; stdset=&quot;0&quot;&gt;</span>
+             <span class="s0">&lt;size&gt;</span>
+              <span class="s0">&lt;width&gt;0&lt;/width&gt;</span>
+              <span class="s0">&lt;height&gt;0&lt;/height&gt;</span>
+             <span class="s0">&lt;/size&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/spacer&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_chart&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;차트&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_account&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;계좌관리&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_setting&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;환경설정&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+         <span class="s0">&lt;/layout&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QLabel&quot; name=&quot;label_stocklist&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+          <span class="s0">&lt;string&gt;종목목록&lt;/string&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;property name=&quot;alignment&quot;&gt;</span>
+          <span class="s0">&lt;set&gt;Qt::AlignCenter&lt;/set&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;table_hoga&quot;&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;MIT&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;매도&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;건수&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;잔량&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;고정&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;잔량&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;건수&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;매수&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;MIT&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QFrame&quot; name=&quot;frame_buttons&quot;&gt;</span>
+         <span class="s0">&lt;layout class=&quot;QHBoxLayout&quot; name=&quot;horizontalLayout_buttons&quot;&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_sell_res_cancel&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;매도예약취소&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_sell_cancel&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;매도취소&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_all_cancel&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;일괄취소&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_item_cancel&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;종목취소&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_buy_cancel&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;매수취소&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;item&gt;</span>
+           <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_buy_res_cancel&quot;&gt;</span>
+            <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+             <span class="s0">&lt;string&gt;매수예약취소&lt;/string&gt;</span>
+            <span class="s0">&lt;/property&gt;</span>
+           <span class="s0">&lt;/widget&gt;</span>
+          <span class="s0">&lt;/item&gt;</span>
+         <span class="s0">&lt;/layout&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTabWidget&quot; name=&quot;tabWidget&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;currentIndex&quot;&gt;</span>
+          <span class="s0">&lt;number&gt;0&lt;/number&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;widget class=&quot;QWidget&quot; name=&quot;tab&quot;&gt;</span>
+          <span class="s0">&lt;attribute name=&quot;title&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;전체&lt;/string&gt;</span>
+          <span class="s0">&lt;/attribute&gt;</span>
+          <span class="s0">&lt;layout class=&quot;QHBoxLayout&quot; name=&quot;horizontalLayout_3&quot;&gt;</span>
+           <span class="s0">&lt;item&gt;</span>
+            <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget_6&quot;&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+            <span class="s0">&lt;/widget&gt;</span>
+           <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;/layout&gt;</span>
+         <span class="s0">&lt;/widget&gt;</span>
+         <span class="s0">&lt;widget class=&quot;QWidget&quot; name=&quot;tab_2&quot;&gt;</span>
+          <span class="s0">&lt;attribute name=&quot;title&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;잔고&lt;/string&gt;</span>
+          <span class="s0">&lt;/attribute&gt;</span>
+          <span class="s0">&lt;layout class=&quot;QGridLayout&quot; name=&quot;gridLayout_2&quot;&gt;</span>
+           <span class="s0">&lt;item row=&quot;0&quot; column=&quot;0&quot;&gt;</span>
+            <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget&quot;&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+            <span class="s0">&lt;/widget&gt;</span>
+           <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;/layout&gt;</span>
+         <span class="s0">&lt;/widget&gt;</span>
+         <span class="s0">&lt;widget class=&quot;QWidget&quot; name=&quot;tab_3&quot;&gt;</span>
+          <span class="s0">&lt;attribute name=&quot;title&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;미체결&lt;/string&gt;</span>
+          <span class="s0">&lt;/attribute&gt;</span>
+          <span class="s0">&lt;layout class=&quot;QHBoxLayout&quot; name=&quot;horizontalLayout_2&quot;&gt;</span>
+           <span class="s0">&lt;item&gt;</span>
+            <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget_5&quot;&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+             <span class="s0">&lt;column&gt;</span>
+              <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+               <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+              <span class="s0">&lt;/property&gt;</span>
+             <span class="s0">&lt;/column&gt;</span>
+            <span class="s0">&lt;/widget&gt;</span>
+           <span class="s0">&lt;/item&gt;</span>
+          <span class="s0">&lt;/layout&gt;</span>
+         <span class="s0">&lt;/widget&gt;</span>
+         <span class="s0">&lt;widget class=&quot;QWidget&quot; name=&quot;tab_4&quot;&gt;</span>
+          <span class="s0">&lt;attribute name=&quot;title&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;예약&lt;/string&gt;</span>
+          <span class="s0">&lt;/attribute&gt;</span>
+         <span class="s0">&lt;/widget&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+      <span class="s0">&lt;/layout&gt;</span>
+     <span class="s0">&lt;/widget&gt;</span>
+    <span class="s0">&lt;/item&gt;</span>
+    <span class="s0">&lt;item&gt;</span>
+     <span class="s0">&lt;widget class=&quot;QFrame&quot; name=&quot;frame_center&quot;&gt;</span>
+      <span class="s0">&lt;property name=&quot;frameShape&quot;&gt;</span>
+       <span class="s0">&lt;enum&gt;QFrame::StyledPanel&lt;/enum&gt;</span>
+      <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;layout class=&quot;QGridLayout&quot; name=&quot;gridLayout_3&quot;&gt;</span>
+       <span class="s0">&lt;item row=&quot;4&quot; column=&quot;0&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QLabel&quot; name=&quot;label&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+          <span class="s0">&lt;string&gt;체결현황&lt;/string&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item row=&quot;2&quot; column=&quot;0&quot; rowspan=&quot;2&quot; colspan=&quot;5&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;table_stocklist&quot;&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;종목명&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;코드&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;현재가&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;대비율&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item row=&quot;1&quot; column=&quot;0&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget_2&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+          <span class="s0">&lt;sizepolicy hsizetype=&quot;Expanding&quot; vsizetype=&quot;Fixed&quot;&gt;</span>
+           <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+           <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+          <span class="s0">&lt;/sizepolicy&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item row=&quot;0&quot; column=&quot;0&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget_4&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+          <span class="s0">&lt;sizepolicy hsizetype=&quot;Expanding&quot; vsizetype=&quot;Fixed&quot;&gt;</span>
+           <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+           <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+          <span class="s0">&lt;/sizepolicy&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item row=&quot;5&quot; column=&quot;0&quot; colspan=&quot;5&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;table_trades&quot;&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;시간&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;가격&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;수량&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item row=&quot;1&quot; column=&quot;1&quot; colspan=&quot;4&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTableWidget&quot; name=&quot;tableWidget_3&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+          <span class="s0">&lt;sizepolicy hsizetype=&quot;Expanding&quot; vsizetype=&quot;Fixed&quot;&gt;</span>
+           <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+           <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+          <span class="s0">&lt;/sizepolicy&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item row=&quot;0&quot; column=&quot;1&quot; colspan=&quot;4&quot;&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QTreeWidget&quot; name=&quot;treeWidget_3&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+          <span class="s0">&lt;sizepolicy hsizetype=&quot;Expanding&quot; vsizetype=&quot;Fixed&quot;&gt;</span>
+           <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+           <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+          <span class="s0">&lt;/sizepolicy&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+         <span class="s0">&lt;column&gt;</span>
+          <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+           <span class="s0">&lt;string&gt;New Column&lt;/string&gt;</span>
+          <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;/column&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+      <span class="s0">&lt;/layout&gt;</span>
+     <span class="s0">&lt;/widget&gt;</span>
+    <span class="s0">&lt;/item&gt;</span>
+    <span class="s0">&lt;item&gt;</span>
+     <span class="s0">&lt;widget class=&quot;QFrame&quot; name=&quot;frame_right&quot;&gt;</span>
+      <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+       <span class="s0">&lt;sizepolicy hsizetype=&quot;Fixed&quot; vsizetype=&quot;Ignored&quot;&gt;</span>
+        <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+        <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+       <span class="s0">&lt;/sizepolicy&gt;</span>
+      <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;property name=&quot;frameShape&quot;&gt;</span>
+       <span class="s0">&lt;enum&gt;QFrame::StyledPanel&lt;/enum&gt;</span>
+      <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;layout class=&quot;QVBoxLayout&quot; name=&quot;verticalLayout_right&quot;&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QLabel&quot; name=&quot;label_chart&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+          <span class="s0">&lt;string&gt;📈 차트 영역 (미구현)&lt;/string&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;property name=&quot;alignment&quot;&gt;</span>
+          <span class="s0">&lt;set&gt;Qt::AlignCenter&lt;/set&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;spacer name=&quot;verticalSpacer&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;orientation&quot;&gt;</span>
+          <span class="s0">&lt;enum&gt;Qt::Vertical&lt;/enum&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+         <span class="s0">&lt;property name=&quot;sizeHint&quot; stdset=&quot;0&quot;&gt;</span>
+          <span class="s0">&lt;size&gt;</span>
+           <span class="s0">&lt;width&gt;0&lt;/width&gt;</span>
+           <span class="s0">&lt;height&gt;0&lt;/height&gt;</span>
+          <span class="s0">&lt;/size&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+        <span class="s0">&lt;/spacer&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+       <span class="s0">&lt;item&gt;</span>
+        <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;button_refresh&quot;&gt;</span>
+         <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+          <span class="s0">&lt;string&gt;새로고침&lt;/string&gt;</span>
+         <span class="s0">&lt;/property&gt;</span>
+        <span class="s0">&lt;/widget&gt;</span>
+       <span class="s0">&lt;/item&gt;</span>
+      <span class="s0">&lt;/layout&gt;</span>
+     <span class="s0">&lt;/widget&gt;</span>
+    <span class="s0">&lt;/item&gt;</span>
+   <span class="s0">&lt;/layout&gt;</span>
+  <span class="s0">&lt;/widget&gt;</span>
+  <span class="s0">&lt;widget class=&quot;QDockWidget&quot; name=&quot;dockWidget&quot;&gt;</span>
+   <span class="s0">&lt;property name=&quot;enabled&quot;&gt;</span>
+    <span class="s0">&lt;bool&gt;true&lt;/bool&gt;</span>
+   <span class="s0">&lt;/property&gt;</span>
+   <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+    <span class="s0">&lt;sizepolicy hsizetype=&quot;Preferred&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+     <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+     <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+    <span class="s0">&lt;/sizepolicy&gt;</span>
+   <span class="s0">&lt;/property&gt;</span>
+   <span class="s0">&lt;property name=&quot;autoFillBackground&quot;&gt;</span>
+    <span class="s0">&lt;bool&gt;true&lt;/bool&gt;</span>
+   <span class="s0">&lt;/property&gt;</span>
+   <span class="s0">&lt;property name=&quot;floating&quot;&gt;</span>
+    <span class="s0">&lt;bool&gt;true&lt;/bool&gt;</span>
+   <span class="s0">&lt;/property&gt;</span>
+   <span class="s0">&lt;attribute name=&quot;dockWidgetArea&quot;&gt;</span>
+    <span class="s0">&lt;number&gt;2&lt;/number&gt;</span>
+   <span class="s0">&lt;/attribute&gt;</span>
+   <span class="s0">&lt;widget class=&quot;QWidget&quot; name=&quot;dockWidgetContents&quot;&gt;</span>
+    <span class="s0">&lt;layout class=&quot;QVBoxLayout&quot; name=&quot;verticalLayout&quot;&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_3&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;원격지원&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;통합주문&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;iconSize&quot;&gt;</span>
+        <span class="s0">&lt;size&gt;</span>
+         <span class="s0">&lt;width&gt;16&lt;/width&gt;</span>
+         <span class="s0">&lt;height&gt;30&lt;/height&gt;</span>
+        <span class="s0">&lt;/size&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_9&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;잔고목록&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_8&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;거래내역&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_7&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;오버신청&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_6&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;모의신청&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_5&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;환경설정&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_4&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;1:1문의&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+     <span class="s0">&lt;item&gt;</span>
+      <span class="s0">&lt;widget class=&quot;QPushButton&quot; name=&quot;pushButton_2&quot;&gt;</span>
+       <span class="s0">&lt;property name=&quot;sizePolicy&quot;&gt;</span>
+        <span class="s0">&lt;sizepolicy hsizetype=&quot;Minimum&quot; vsizetype=&quot;Expanding&quot;&gt;</span>
+         <span class="s0">&lt;horstretch&gt;0&lt;/horstretch&gt;</span>
+         <span class="s0">&lt;verstretch&gt;0&lt;/verstretch&gt;</span>
+        <span class="s0">&lt;/sizepolicy&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+       <span class="s0">&lt;property name=&quot;text&quot;&gt;</span>
+        <span class="s0">&lt;string&gt;공지사항&lt;/string&gt;</span>
+       <span class="s0">&lt;/property&gt;</span>
+      <span class="s0">&lt;/widget&gt;</span>
+     <span class="s0">&lt;/item&gt;</span>
+    <span class="s0">&lt;/layout&gt;</span>
+   <span class="s0">&lt;/widget&gt;</span>
+  <span class="s0">&lt;/widget&gt;</span>
+ <span class="s0">&lt;/widget&gt;</span>
+ <span class="s0">&lt;resources/&gt;</span>
+ <span class="s0">&lt;connections/&gt;</span>
+<span class="s0">&lt;/ui&gt;</span>
+</pre>
+</body>
+</html>
