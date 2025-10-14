@@ -1,4 +1,29 @@
-./.venv\
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.dylib
 
+# 가상환경
+.venv/
+venv/
+env/
 
+# 빌드/배포 산출물
+build/
+dist/
+*.egg-info/
+.eggs/
+REMOTE/build/
+REMOTE/dist/
 
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.log
+
+# 환경변수
+.env
+.env.*
