@@ -126,6 +126,7 @@ class StockListTable(_BaseTable):
     def populate(self):
         names = ["삼성전자", "LG에너지솔루션", "NAVER", "카카오", "현대차", "기아", "POSCO홀딩스", "셀트리온", "SK하이닉스", "한화솔루션"]
         self.data.clear()
+        print('test')
         for name in names[: self.rows]:
             code = str(random.randint(100000, 999999))
             price = random.randint(30000, 200000)

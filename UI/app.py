@@ -140,6 +140,7 @@ class NasdaqWindow(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self._tick)
         self.timer.start(1000)
         self._chart_windows = []
+        print('test')
 
     def _tick(self):
         self.orderbook.refresh()
