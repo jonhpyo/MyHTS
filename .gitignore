@@ -25,5 +25,5 @@ REMOTE/dist/
 *.log
 
 # 환경변수
-.env
+UI/.env
 .env.*

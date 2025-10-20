@@ -1,13 +1,29 @@
 # app.py
-import sys, time, random, os
+from __future__ import annotations
+
+import os
+import random
+import sys
+import time
 import webbrowser
 
-import webview
-from PyQt6.QtCore import QTimer
+import yfinance as yf
+from ib_insync import util
+util.useQt()
+
+# from PyQt5.QtWidgets import QTableWidget, QDockWidget
 # from PyQt5 import QtWidgets, uic
 # from PyQt5.QtCore import QTimer, QUrl
 # from PySide6.QtWebEngineWidgets import QWebEngineView
 from dotenv import load_dotenv
+from ib_insync import IB, Future
+
+from UI.databento_bridge import DatabentoBridge
+from UI.polygon_ws_bridge import PolygonWSBridge
+from ib_depth_bridge import IBDepthBridge
+from orderbook_table import OrderBookTable
+
+
 load_dotenv()
 # ✅ macOS WebEngine 크래시 방지 권장
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
@@ -21,7 +37,7 @@ except Exception:
     from PyQt5 import QtWidgets, uic
     from PyQt5.QtCore import QTimer, QUrl
     QT_LIB = "PyQt5"
-from tables import OrderBookTable, StockListTable, TradesTable
+from tables import StockListTable, TradesTable
 from charts import CandleChartWidget, Candle
 
 
@@ -36,116 +52,128 @@ if USE.upper() == "ALPACA":
 else:
     from adapters.kis import KISSource as DataSource
 
-class CandleWindow(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Candle Chart (Mock API)")
-        self.resize(1100, 650)
-
-        self.chart = CandleChartWidget(max_visible=200)
-        self.setCentralWidget(self.chart)
-
-        self.src = DataSource()
-        self.symbol = os.getenv("SYMBOL", "QQQ")
-        print(self.symbol)
-
-        try:
-            bars = self.src.get_recent_bars(self.symbol, timeframe="1m", limit=300)
-        except Exception as e:
-            print("초기 캔들 로드 실패:", e)
-            bars = []
-        if bars:
-            self.chart.add_candles([Candle(b.ts, b.o, b.h, b.l, b.c, b.v) for b in bars])
-            last_c = bars[-1].c
-        else:
-            now = int(time.time())
-            last_c = 11000.0
-            dummy = []
-            for i in range(300):
-                t = now - (299 - i) * 60
-                o = last_c
-                h = o + random.uniform(0, 30)
-                l = o - random.uniform(0, 30)
-                c = random.uniform(l, h)
-                v = random.randint(200, 5000)
-                dummy.append(Candle(t, o, h, l, c, v))
-                last_c = c
-            self.chart.add_candles(dummy)
-
-        self.chart.set_timeframe("1H")
-
-        self._accum = {"o": None, "h": None, "l": None, "v": 0, "start_ts": (int(time.time())//60+1)*60}
-        self._last_price = last_c
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self._tick)
-        self.timer.start(1000)
-
-        tb = QtWidgets.QToolBar("Timeframe", self)
-        self.addToolBar(tb)
-        lbl = QtWidgets.QLabel("단위: ")
-        tb.addWidget(lbl)
-        self.cmb_tf = QtWidgets.QComboBox()
-        self.cmb_tf.addItems(["분", "일", "주", "월", "년"])
-        tb.addWidget(self.cmb_tf)
-        self._tf_map = {"분": "1H", "일": "1D", "주": "1W", "월": "1M", "년": "1Y"}
-        self.cmb_tf.currentTextChanged.connect(self._on_tf_changed)
-        self.cmb_tf.setCurrentText("분")
-
-    def _on_tf_changed(self, text: str):
-        tf = self._tf_map.get(text, "1H")
-        self.chart.set_timeframe(tf)
-
-    def _tick(self):
-        try:
-            ts, price, qty = self.src.get_last_trade(self.symbol)
-        except Exception:
-            ts = int(time.time())
-            price = self._last_price + random.uniform(-10, 10)
-            qty = random.randint(10, 200)
-
-        self._last_price = price
-
-        acc = self._accum
-        if acc["o"] is None:
-            acc.update(o=price, h=price, l=price, v=0)
-        acc["h"] = max(acc["h"], price)
-        acc["l"] = min(acc["l"], price)
-        acc["v"] += qty
-
-        if ts < acc["start_ts"]:
-            self.chart.update_last_candle(Candle(acc["start_ts"]-60, acc["o"], acc["h"], acc["l"], price, acc["v"]))
-        else:
-            self.chart.add_candle(Candle(acc["start_ts"]-60, acc["o"], acc["h"], acc["l"], price, acc["v"]))
-            acc["start_ts"] += 60
-            acc.update(o=price, h=price, l=price, v=0)
-
 class NasdaqWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi("nasdaq_extended.ui", self)
         self.setWindowTitle("NASDAQ EXTENDED (모의 API)")
 
-        self.orderbook = OrderBookTable(self.table_hoga, row_count=30, base_index=9)
+        self.orderbook = OrderBookTable(self.table_hoga, row_count=21, base_index=10)
         self.stocklist = StockListTable(self.table_stocklist, rows=10)
         self.trades = TradesTable(self.table_trades, max_rows=30)
 
-        self.orderbook.populate()
-        self.stocklist.populate()
-        self.trades.populate(initial_count=5)
+        # self.orderbook.populate()
+        # self.stocklist.populate()
+        # self.trades.populate(initial_count=5)
+
+        self._pending = None
 
         self.button_chart.clicked.connect(self.open_chart_window)
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self._tick)
-        self.timer.start(1000)
-        self._chart_windows = []
-        print('test')
+        def on_depth(bids, asks, mid):
+            self._pending = (bids, asks, mid)
 
-    def _tick(self):
-        self.orderbook.refresh()
-        self.stocklist.refresh()
-        self.trades.add_trade()
+
+        # ✅ .env 사용 (루트에 POLYGON_API_KEY=... 넣기)
+        POLYGON_API_KEY = "VvrUY_6J_R8G16U2zXekn0FBGcWL7DpM"
+        load_dotenv()
+        USE_MOCK_DATA = os.getenv("USE_MOCK_DATA")
+
+        if not POLYGON_API_KEY:
+            raise RuntimeError("POLYGON_API_KEY가 .env에 없습니다.")
+
+        # ❗폴리곤 선물 티커는 계정 문서 기준으로 정확히 넣어야 합니다.
+        #   예) 연속계약: "@NQ"  / 특정월물: "CME:NQZ2025" (계정마다 표기 다를 수 있음)
+        FUTURE_TICKERS = ["AAPL", "MSFT", "GOOG"]
+
+        # self.bridge = PolygonWSBridge(
+        #     api_key=POLYGON_API_KEY,
+        #     tickers=FUTURE_TICKERS,
+        #     on_depth=on_depth,
+        #     url="wss://socket.polygon.io/futures",
+        # )
+        # self.bridge = PolygonWSBridge(
+        #     api_key=POLYGON_API_KEY,
+        #     tickers=FUTURE_TICKERS,
+        #     on_depth=on_depth,
+        #     url="wss://socket.polygon.io/stocks",
+        # )
+        # Databento로 NQ.FUT Top-of-Book
+        # self.db_bridge = DatabentoBridge(
+        #     on_depth=on_depth,
+        #     dataset="GLBX.MDP3",
+        #     schema="tbbo",  # ← 수정됨
+        #     symbols="NQ.FUT",  # 예: ES.FUT, MNQ.FUT 등
+        #     stype_in="parent",
+        # )
+        self.ib = IB()
+        self.ib.connect('127.0.0.1', 7497, clientId=100)
+        self.ib.reqMarketDataType(1)
+
+        contract = Future('NQ', '202512', 'CME')
+        self.ib.qualifyContracts(contract)
+        self.ticker = self.ib.reqMktDepth(contract, numRows=10)
+
+        def get_last_close(symbol="NQ=F"):
+            data = yf.download(symbol, period="2d", interval="1d")
+            return float(data["Close"].iloc[-1])
+
+        BASE_PRICE = get_last_close("NQ=F")
+
+        # Qt 타이머에서 depth 꺼내 화면 반영
+        def pump():
+            if USE_MOCK_DATA:
+                bids = [(BASE_PRICE - i * 2 - random.random(), random.randint(1, 5), 1) for i in range(10)]
+                asks = [(BASE_PRICE + i * 2 + random.random(), random.randint(1, 5), 1) for i in range(10)]
+                mid = (bids[0][0] + asks[0][0]) / 2
+                self._pending = (bids, asks, mid)
+                return
+
+            if not getattr(self, "ticker", None):
+                return
+            bids = [(float(r.price), int(r.size or 0), 1) for r in self.ticker.domBids if r.price is not None]
+            asks = [(float(r.price), int(r.size or 0), 1) for r in self.ticker.domAsks if r.price is not None]
+
+            if not bids and not asks:
+                return
+
+            mid = None
+            if bids and asks:
+                mid = (bids[0][0] + asks[0][0]) / 2.0
+            elif bids:
+                mid = bids[0][0]
+            elif asks:
+                mid = asks[0][0]
+
+            self._pending = (bids, asks, mid)
+
+        # ✅ pump용 타이머 (데이터 수집)
+        self.timer_data = QTimer(self)
+        self.timer_data.timeout.connect(pump)
+        self.timer_data.start(150)  # 100~250ms 권장
+
+        # ✅ 렌더용 타이머 (화면 반영)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._flush)
+        self.timer.start(150)
+
+
+    # def _flush(self):
+    #     pending = getattr(self, "_pending", None)
+    #     if not pending:
+    #         return
+    #     bids, asks, mid = pending
+    #     self._pending = None
+    #     self.orderbook.set_orderbook(bids=bids, asks=asks, mid_price=mid)
+
+    def _flush(self):
+        if not self._pending:
+            return
+        bids, asks, mid = self._pending
+        self._pending = None
+        self.orderbook.set_orderbook(bids=bids, asks=asks, mid_price=mid)
+
+
 
     def open_chart_window(self):
         os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
@@ -179,7 +207,7 @@ class NasdaqWindow(QtWidgets.QMainWindow):
             webbrowser.open(url_text)
             return
 
-            # 2) Dock 생성
+        # 2) Dock 생성
         dock = self._make_chart_dock(title=f"해외선물 차트 (TradingView, {qt.upper()})")
 
         # 3) WebEngineView 장착
@@ -232,7 +260,15 @@ class NasdaqWindow(QtWidgets.QMainWindow):
             from PyQt5.QtCore import Qt
             return Qt.RightDockWidgetArea
 
-
+def closeEvent(self, e):
+    try:
+        if getattr(self, "ticker", None):
+            self.ib.cancelMktDepth(self.ticker.contract)
+        if self.ib.isConnected():
+            self.ib.disconnect()
+    except Exception:
+        pass
+    e.accept()
 
 
 if __name__ == "__main__":
