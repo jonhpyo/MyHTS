@@ -1,6 +1,6 @@
 import requests, datetime as dt
 
-KEY = "YOUR_KEY"
+KEY = "YOUR_KEY1"
 SECRET = "YOUR_SECRET"
 BASE = "https://data.alpaca.markets/v2"
 
