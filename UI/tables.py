@@ -2,8 +2,7 @@ import random
 import datetime
 from typing import List, Dict
 
-from PyQt6.QtCore import Qt
-from UI.datasource_yf import YFSource
+from ui.datasource_yf import YFSource
 
 # ✅ PyQt6 우선, 실패 시 PyQt5 폴백 + 정렬 플래그 별칭 제공
 try:
@@ -19,7 +18,7 @@ except Exception:
     QtAlignRight   = QtCore.Qt.AlignRight
     QtAlignVCenter = QtCore.Qt.AlignVCenter
 
-from ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
+from widgets.ui_styles import BLUE_HEADER, apply_header_style
 
 
 class _BaseTable:
@@ -35,85 +34,6 @@ class _BaseTable:
                                    else QtWidgets.QAbstractItemView.NoEditTriggers)
 
 
-# class OrderBookTable(_BaseTable):
-#     def __init__(self, table: QTableWidget, row_count: int, base_index: int = 9):
-#         super().__init__(table)
-#         self.row_count = row_count
-#         self.base_index = base_index
-#         self.data: List[List[float]] = []
-#         self.table.setRowCount(self.row_count)
-#         self.table.setColumnCount(8)
-#         self.table.setHorizontalHeaderLabels(["MIT", "매도", "건수", "잔량", "고정", "잔량", "건수", "MIT"])
-#         apply_header_style(self.table, BLUE_HEADER)
-#         for i in range(self.row_count):
-#             self.table.setRowHeight(i, 24)
-#         self._install_baseline_delegate()
-#
-#     def populate(self):
-#         self.data = []
-#         for _ in range(self.row_count):
-#             price = round(random.uniform(10000, 12000), 2)
-#             left_cnt = random.randint(1, 20)
-#             left_qty = random.randint(100, 2000)
-#             right_qty = random.randint(100, 2000)
-#             right_cnt = random.randint(1, 20)
-#             self.data.append([price, left_cnt, left_qty, right_qty, right_cnt])
-#         self._render()
-#
-#     def refresh(self):
-#         for i, row in enumerate(self.data):
-#             delta = 0.5 if i == self.base_index else 5
-#             row[0] += random.uniform(-delta, delta)
-#             row[1] = max(1, row[1] + random.randint(-2, 2))
-#             row[2] = max(0, row[2] + random.randint(-100, 100))
-#             row[3] = max(0, row[3] + random.randint(-100, 100))
-#             row[4] = max(1, row[4] + random.randint(-2, 2))
-#         self._render()
-#
-#     def _render(self):
-#         t = self.table
-#         for i, row in enumerate(self.data):
-#             price, left_cnt, left_qty, right_qty, right_cnt = row
-#
-#             item_price = QTableWidgetItem(f"{price:,.2f}")
-#             item_price.setTextAlignment(QtAlignCenter)
-#             if i == self.base_index:
-#                 item_price.setBackground(QtGui.QColor(255, 255, 100))
-#                 item_price.setForeground(QtGui.QBrush(QtGui.QColor("black")))
-#             else:
-#                 item_price.setForeground(QtGui.QBrush(QtGui.QColor("black")))
-#             t.setItem(i, 4, item_price)
-#
-#             item_cnt_left = QTableWidgetItem(str(left_cnt))
-#             item_qty_left = QTableWidgetItem(str(left_qty))
-#             for it in (item_cnt_left, item_qty_left):
-#                 it.setTextAlignment(QtAlignCenter)
-#                 it.setForeground(QtGui.QBrush(QtGui.QColor("lightgreen")))
-#             t.setItem(i, 2, item_cnt_left)
-#             t.setItem(i, 3, item_qty_left)
-#
-#             item_qty_right = QTableWidgetItem(str(right_qty))
-#             item_cnt_right = QTableWidgetItem(str(right_cnt))
-#             for it in (item_qty_right, item_cnt_right):
-#                 it.setTextAlignment(QtAlignCenter)
-#                 it.setForeground(QtGui.QBrush(QtGui.QColor("orange")))
-#             t.setItem(i, 5, item_qty_right)
-#             t.setItem(i, 6, item_cnt_right)
-#
-#     def _install_baseline_delegate(self):
-#         row_index = self.base_index
-#         table = self.table
-#
-#         class _BorderDelegate(QtWidgets.QStyledItemDelegate):
-#             def paint(self, painter, option, index):
-#                 super().paint(painter, option, index)
-#                 if index.row() == row_index:
-#                     pen = QtGui.QPen(QtGui.QColor(0, 0, 0))
-#                     pen.setWidth(2)
-#                     painter.setPen(pen)
-#                     painter.drawLine(option.rect.bottomLeft(), option.rect.bottomRight())
-#
-#         table.setItemDelegate(_BorderDelegate(table))
 
 
 class StockListTable(_BaseTable):
@@ -215,6 +135,27 @@ class TradesTable(_BaseTable):
         if len(self.trades) > self.max_rows:
             self.trades = self.trades[: self.max_rows]
 
+    # tables.py (TradesTable 내부)
+    def add_fill(self, side: str, price: float, qty: int):
+        """
+        내가 낸 주문 체결을 테이블 상단에 추가.
+        side: "BUY" or "SELL"
+        """
+        import datetime
+        now = datetime.datetime.now().strftime("%H:%M:%S")
+        up = (side.upper() == "BUY")  # 매수 체결은 빨강, 매도는 파랑
+        self.trades.insert(0, {
+            "time": now,
+            "price": round(float(price), 2),
+            "qty": int(qty),
+            "up": up,
+            "is_fill": True,  # 내가 낸 체결 표시 플래그
+            "side": side.upper()
+        })
+        if len(self.trades) > self.max_rows:
+            self.trades = self.trades[: self.max_rows]
+        self._render()
+
     def _render(self):
         t = self.table
         t.setRowCount(len(self.trades))
@@ -233,3 +174,16 @@ class TradesTable(_BaseTable):
             t.setItem(i, 0, time_item)
             t.setItem(i, 1, price_item)
             t.setItem(i, 2, qty_item)
+
+            if tr.get("is_fill"):
+                font = price_item.font()
+                font.setBold(True)
+                time_item.setFont(font)
+                price_item.setFont(font)
+                qty_item.setFont(font)
+                # 연한 노란 배경
+                # from PyQt5 import QtGui
+                bg = QtGui.QColor(255, 255, 200)
+                time_item.setBackground(QtGui.QBrush(bg))
+                price_item.setBackground(QtGui.QBrush(bg))
+                qty_item.setBackground(QtGui.QBrush(bg))

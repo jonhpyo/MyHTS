@@ -5,7 +5,8 @@ from typing import List, Optional, Sequence, Tuple
 from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
 from PyQt6.QtCore import Qt
-from ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
+from widgets.ui_styles import BLUE_HEADER, apply_header_style
+
 
 # 간단 헤더 스타일 (자유 수정)
 # BLUE_HEADER = {"bg": QtGui.QColor(235, 242, 255), "fg": QtGui.QColor(30, 30, 30)}
@@ -136,6 +137,17 @@ class OrderBookTable(_BaseTable):
             bi += 1
 
         self._render()
+
+    def _flush_depth_to_ui(self):
+        """버퍼→OrderBookTable 반영 + 최근 호가 저장"""
+        if not self._pending:
+            return
+        bids, asks, mid = self._pending
+        self._pending = None
+        # 최신 호가 저장
+        self._last_depth = (bids, asks, mid)
+        # 화면 반영
+        self.orderbook.set_orderbook(bids=bids, asks=asks, mid_price=mid)
 
     def _render(self):
         t = self.table
