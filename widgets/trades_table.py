@@ -41,9 +41,9 @@ class TradesTable(_BaseTable):
         self.max_rows = max_rows
         self.trades: List[Dict] = []
         self.trade_price: float = 11000.0
-        self.table.setColumnCount(3)
+        self.table.setColumnCount(5)
         self.table.setRowCount(0)
-        self.table.setHorizontalHeaderLabels(["시간", "체결가", "수량"])
+        self.table.setHorizontalHeaderLabels(["연번", "시간", "체결가", "수량", "비고"])
         apply_header_style(self.table, BLUE_HEADER)
 
 

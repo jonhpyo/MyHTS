@@ -6,8 +6,8 @@ from PyQt6 import QtWidgets, QtGui, QtCore
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
 from PyQt6.QtCore import Qt
 
-from ui.tables import QtAlignCenter, QtAlignRight, QtAlignVCenter
-from ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
+from widgets.ui_styles import QtAlignCenter, QtAlignRight, QtAlignVCenter
+from widgets.ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
 
 import random
 import datetime

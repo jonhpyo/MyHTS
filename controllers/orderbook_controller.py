@@ -5,14 +5,15 @@ from services.order_simulator import OrderSimulator
 from widgets.orderbook_table import OrderBookTable
 from widgets.trades_table import TradesTable
 from models.order import Fill
+import datetime
 
 class OrderBookController:
     """서비스↔ui 연결. 타이머에서 주기적으로 fetch→ui 갱신, 주문 이벤트 처리."""
-    def __init__(self, md: MarketDataService, ob_table: OrderBookTable, trades: TradesTable):
-        self.md = md
-        self.ob_table = ob_table
-        self.trades = trades
-        self.sim = OrderSimulator()
+    def __init__(self, md_service, orderbook_widget, trades_widget, sim, balance_view):
+        self.md = md_service
+        self.ob_table = orderbook_widget
+        self.trades = trades_widget
+        self.sim = sim
         self.last_depth: Optional[DepthSnapshot] = None
 
     def poll_and_render(self):
@@ -51,9 +52,9 @@ class OrderBookController:
         self.ob_table.set_orderbook(snap.bids, snap.asks, snap.mid or 0.0)
 
     def _append_fills(self, fills: List[Fill]):
+        """체결들을 TradesTable에 반영."""
+        if not fills:
+            return
         for f in fills:
-            up = (f.side == "BUY")  # BUY 녹색/SELL 파랑 등 원하는 규칙에 맞춰 조정
-            self.trades.trades.insert(0, {"time": "", "price": round(f.price, 2), "qty": int(f.qty), "up": up})
-        if fills:
-            self.trades.trades = self.trades.trades[: self.trades.max_rows]
-            self.trades._render()
+            # TradesTable.add_fill(side, price, qty) 사용 (굵게/색상/배경 처리 포함)
+            self.trades.add_fill(f.side, f.price, f.qty)
