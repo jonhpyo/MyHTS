@@ -35,3 +35,6 @@ class AccountService:
     def apply_fills(self, fills: Iterable[Fill]):
         for f in fills:
             self.apply_fill(f)
+
+    def apply_cash(self, delta: float):
+        self.state.cash = float(self.state.cash) + float(delta)
