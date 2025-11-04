@@ -73,26 +73,33 @@
        </item>
        <item>
         <widget class="QFrame" name="frame_top">
-         <layout class="QHBoxLayout" name="horizontalLayout_top">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
           <item>
-           <widget class="QLabel" name="label_market">
-            <property name="text">
-             <string>나스닥100</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_price">
-            <property name="text">
-             <string>24,590.50</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_change">
-            <property name="text">
-             <string>▲ 38.75  -0.16%</string>
-            </property>
+           <widget class="QComboBox" name="drpbox_symbols">
+            <item>
+             <property name="text">
+              <string>symbol1</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>symbol2</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>symbol3</string>
+             </property>
+            </item>
            </widget>
           </item>
           <item>

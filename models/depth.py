@@ -9,6 +9,7 @@ class DepthSnapshot:
     bids: List[Level]
     asks: List[Level]
     mid: Optional[float] = None
+    symbol: Optional[str] = None  # ⬅️ 추가
 
     @staticmethod
     def calc_mid(bids: List[Level], asks: List[Level]) -> Optional[float]:

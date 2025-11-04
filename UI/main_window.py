@@ -44,18 +44,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setWindowTitle("NASDAQ EXTENDED")
 
+
         # --- 상태/서비스 초기화 ---
         self.auth = AuthController()
 
         initial_cash = float(os.getenv("INITIAL_CASH", "0"))
         self.account = AccountService(initial_cash=initial_cash)
 
-        self.md = MarketDataService(use_mock=use_mock, base_price=base_price)
+        self.md = MarketDataService(use_mock=use_mock, provider="BINANCE", symbol="solusdt", rows=10,)
+        # if not use_mock:
+        #     self.md.start_ib()
+        # self.md.start_binance()
         if not use_mock:
-            self.md.start_ib()
+            self.md.start_oracle()
 
         self.sim = OrderSimulator()
 
+        self._bind_symbol_selector()
         # --- 위젯 래퍼 바인딩 ---
         self.orderbook = OrderBookTable(self.table_hoga, row_count=21, base_index=10)
         self.stocklist = StockListTable(self.table_stocklist, rows=10)
@@ -93,6 +98,73 @@ class MainWindow(QtWidgets.QMainWindow):
         # 초기 렌더
         self.ready_orders.render(self.sim.working)
         self.balance_table.render(self.account.state)
+
+    # 클래스 메서드 추가
+    def _bind_symbol_selector(self):
+        """
+        .ui에 있는 QComboBox 'drpbox_symbols'를 사용해 심볼 선택/변경 기능 연결
+        """
+        combo = getattr(self, "drpbox_symbols", None)
+        if not isinstance(combo, QtWidgets.QComboBox):
+            QtWidgets.QMessageBox.warning(self, "UI", "drpbox_symbols 콤보를 찾을 수 없습니다.")
+            return
+
+        # 원하는 심볼 목록 (바이낸스 현물 예시)
+        symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+        combo.clear()
+        combo.addItems(symbols)
+
+        # MarketDataService 와 현재 심볼 동기화
+        cur = (self.md.current_symbol() if hasattr(self.md, "current_symbol") else "BTCUSDT")
+        cur = (cur or "BTCUSDT").upper()
+
+        if cur not in symbols:
+            combo.insertItem(0, cur)
+        combo.setCurrentText(cur)
+
+        # 변경 이벤트 연결
+        combo.currentTextChanged.connect(self._on_symbol_changed)
+
+    # MainWindows.py
+    def _on_symbol_changed(self, sym: str):
+        sym = (sym or "").strip().upper()
+        if not sym:
+            return
+
+        # md에 반영(오라클/피드 재시작 등)
+        if hasattr(self.md, "set_symbol"):
+            # 바이낸스는 보통 소문자 사용 -> 정규화해서 전달
+            norm = sym.lower()
+            self.md.set_symbol(norm)
+
+            # 심볼 변경 시 구독/스트림 재시작이 필요하면 수행
+            # 구현되어 있는 메서드에 맞춰 아래 중 하나가 존재한다면 호출
+            if hasattr(self.md, "restart_oracle"):
+                self.md.restart_oracle()
+            elif hasattr(self.md, "start_oracle"):
+                # 간단히 다시 시작 (내부에서 이미 닫고 다시 열도록 구현돼 있으면 더 깔끔)
+                self.md.start_oracle()
+            elif hasattr(self.md, "restart"):
+                self.md.restart()
+
+        # 화면 초기화
+        self.ctrl.last_depth = None
+        try:
+            self.orderbook.set_orderbook([], [], 0.0)
+        except Exception:
+            pass
+        if hasattr(self.trades, "trades"):
+            self.trades.trades.clear()
+            self.trades._render()
+
+        # 바로 한 번 렌더 유도 (다음 타이머 틱까지 기다리지 않게)
+        try:
+            self.ctrl.poll_and_render()
+        except Exception:
+            pass
+
+        # 타이틀
+        self.setWindowTitle(f"NASDAQ EXTENDED — {self.auth.current_user or 'Logged out'} — {sym}")
 
     # --------------------------
     # 탭/테이블 바인딩 헬퍼
@@ -267,6 +339,6 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
-    win = MainWindow(use_mock=True, base_price=20000.0)
+    win = MainWindow(use_mock = False, base_price=20000.0)
     win.show()
     sys.exit(app.exec())

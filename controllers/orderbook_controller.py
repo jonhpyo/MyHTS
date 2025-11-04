@@ -31,16 +31,27 @@ class OrderBookController:
         self.last_depth: Optional[DepthSnapshot] = None
 
     def poll_and_render(self):
-        snap = self.md.fetch_depth()
+        # ⬇️ 현재 심볼을 명시적으로 요청(서비스 구현에 따라 필요 없으면 인자 제거)
+        cur_sym = self.md.current_symbol() if hasattr(self.md, "current_symbol") else None
+        try:
+            snap = self.md.fetch_depth(cur_sym) if cur_sym is not None else self.md.fetch_depth()
+        except TypeError:
+            # fetch_depth(symbol) 시그니처가 없으면 무시하고 호출
+            snap = self.md.fetch_depth()
+
         if not snap:
             return
+
+        # ⬇️ 심볼 변경 감지: 스냅샷이 들고 있는 symbol 과 last_depth 의 symbol 이 다르면 초기화
+        prev_sym = getattr(self.last_depth, "symbol", None)
+        snap_sym = getattr(snap, "symbol", cur_sym)
+        if prev_sym is not None and snap_sym is not None and prev_sym != snap_sym:
+            self._reset_on_symbol_change()
+
         # 미체결 매칭
         fills, snap2 = self.sim.match_working_on_depth(snap)
         self._append_fills_and_update_balance(fills)
-        self.last_depth = snap2
-        self.ob_table.set_orderbook(
-            bids=snap2.bids, asks=snap2.asks, mid_price=snap2.mid or 0.0
-        )
+        self._apply_depth(snap2)
 
     # ---- 주문 핸들러 ----
     def sell_market(self, qty: int):
@@ -54,7 +65,6 @@ class OrderBookController:
         if not self.last_depth:
             return
         fills, new_depth = self.sim.buy_market(qty, self.last_depth)
-        # ⬇️ 잔고까지 갱신하는 함수로 교체
         self._append_fills_and_update_balance(fills)
         self._apply_depth(new_depth)
 
@@ -62,12 +72,38 @@ class OrderBookController:
         if not self.last_depth:
             return qty
         fills, new_depth, remain = self.sim.sell_limit_now_or_queue(price, qty, self.last_depth)
-        # ⬇️ 잔고까지 갱신하는 함수로 교체
         self._append_fills_and_update_balance(fills)
         self._apply_depth(new_depth)
         return remain
 
+    # ---- 심볼 변경 시 초기화 훅 (MainWindow 에서 호출해도 OK) ----
+    def on_symbol_changed(self, sym: str):
+        self._reset_on_symbol_change()
+
     # ---- 내부 유틸 ----
+    def _reset_on_symbol_change(self):
+        # 컨트롤러 상태
+        self.last_depth = None
+        # 시뮬레이터 대기 주문/버퍼 비우기
+        if hasattr(self.sim, "cancel_all"):
+            self.sim.cancel_all()
+        elif hasattr(self.sim, "working"):
+            try:
+                self.sim.working.clear()
+            except Exception:
+                self.sim.working = []
+        # 체결표 초기화
+        try:
+            self.trades.trades.clear()
+            self.trades._render()
+        except Exception:
+            pass
+        # 오더북 비우기
+        try:
+            self.ob_table.set_orderbook([], [], 0.0)
+        except Exception:
+            pass
+
     def _apply_depth(self, snap: DepthSnapshot):
         self.last_depth = snap
         self.ob_table.set_orderbook(snap.bids, snap.asks, snap.mid or 0.0)
