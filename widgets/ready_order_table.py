@@ -1,6 +1,5 @@
 # widgets/ready_orders_table.py
 from typing import List, Any
-
 # PyQt6 우선, 실패 시 PyQt5 폴백
 try:
     from PyQt6 import QtWidgets, QtGui, QtCore
@@ -14,6 +13,7 @@ except Exception:
     QtAlignVCenter = QtCore.Qt.AlignVCenter
 
 from widgets.ui_styles import apply_header_style, BLUE_HEADER
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 
 
 class ReadyOrdersTable:
@@ -42,7 +42,8 @@ class ReadyOrdersTable:
         else:
             t.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
             t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        t.horizontalHeader().setStretchLastSection(False)
+
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         apply_header_style(t, BLUE_HEADER)
 
     def render(self, orders: List[Any]):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import List, Optional, Sequence, Tuple
 from PyQt6 import QtWidgets, QtGui, QtCore
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt6.QtCore import Qt
 from widgets.ui_styles import BLUE_HEADER, apply_header_style
 
@@ -51,6 +51,7 @@ class OrderBookTable(_BaseTable):
         self.table.setRowCount(self.row_count)
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels(["MIT", "매도", "건수", "잔량", "고정", "잔량", "건수", "MIT"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         apply_header_style(self.table, BLUE_HEADER)
 
         widths = [70, 80, 80, 80, 90, 80, 80, 80]

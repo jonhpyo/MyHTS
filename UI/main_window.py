@@ -1,8 +1,11 @@
 # MainWindows.py
 import os
+from services.db_service import DBService
 from pathlib import Path
 
 from ib_insync import util
+from widgets.open_account_dialog import OpenAccountDialog
+
 util.useQt()
 
 # PyQt6 우선, 실패 시 PyQt5 폴백
@@ -57,6 +60,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.md.start_binance()
         if not use_mock:
             self.md.start_oracle()
+
+        self.db = DBService()
 
         self.sim = OrderSimulator()
 
@@ -177,8 +182,19 @@ class MainWindow(QtWidgets.QMainWindow):
         tabw = getattr(self, "table_ready_trades", None)  # QTabWidget
         table = None
 
+
         if isinstance(tabw, QtWidgets.QTabWidget):
+            tabw.tabBar().setStyleSheet("""
+                    QTabBar::tab {
+                        width: 120px;       /* 각 탭의 고정 너비 */
+                        height: 30px;       /* 탭 높이 */
+                        font-size: 13px;    /* 폰트 크기 */
+                    }
+                """
+            )
+
             table = tabw.findChild(QtWidgets.QTableWidget, "tap_ready_trades")
+
             if table is None:
                 # 첫 탭 컨테이너 확보
                 if tabw.count() == 0:
@@ -297,14 +313,28 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
 
         menu = mb.addMenu("File")
+
+        # 로그인/로그아웃
         self.act_login_logout = menu.addAction("Login…")
         self.act_login_logout.setShortcut("Ctrl+L" if os.name != "posix" else "Cmd+L")
         self.act_login_logout.triggered.connect(self._toggle_login)
 
+        # ✅ 회원가입 추가
+        act_signup = menu.addAction("Sign Up…")
+        act_signup.setShortcut("Ctrl+N" if os.name != "posix" else "Cmd+N")
+        act_signup.triggered.connect(self._open_signup_dialog)
+
+        act_open_account = menu.addAction("open Account")
+        act_open_account.triggered.connect(self._open_account_dialog)
+
+
         menu.addSeparator()
+
+        # 종료
         act_quit = menu.addAction("Quit")
         act_quit.setShortcut("Ctrl+Q" if os.name != "posix" else "Cmd+Q")
         act_quit.triggered.connect(self.close)
+
         self._apply_login_ui()
 
     def _toggle_login(self):
@@ -329,10 +359,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(f"NASDAQ EXTENDED — {self.auth.current_user or 'Logged out'}")
         self.act_login_logout.setText("Logout" if self.auth.current_user else "Login…")
 
+    def _open_account_dialog(self):
+        dlg = OpenAccountDialog(self.db, self)
+        dlg.exec()
+
     def closeEvent(self, e):
         self.timer.stop()
         self.md.close()
+        if hasattr(self, "db"):
+            self.db.close()
         super().closeEvent(e)
+
+    def _open_signup_dialog(self):
+        from widgets.signup_dialog import SignupDialog
+        dlg = SignupDialog(self.db, self)
+        dlg.exec()
 
 
 # 단독 실행용 (프로젝트에서 main.py가 따로 있으면 생략 가능)

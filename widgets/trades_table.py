@@ -3,8 +3,9 @@ from __future__ import annotations
 import random
 from typing import List, Optional, Sequence, Tuple
 from PyQt6 import QtWidgets, QtGui, QtCore
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt6.QtCore import Qt
+
 
 from .ui_styles import QtAlignCenter, QtAlignRight, QtAlignVCenter
 from .ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
@@ -44,6 +45,7 @@ class TradesTable(_BaseTable):
         self.table.setColumnCount(5)
         self.table.setRowCount(0)
         self.table.setHorizontalHeaderLabels(["연번", "시간", "체결가", "수량", "비고"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         apply_header_style(self.table, BLUE_HEADER)
 
 

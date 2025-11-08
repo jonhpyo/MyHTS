@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import List, Optional, Sequence, Tuple
 from PyQt6 import QtWidgets, QtGui, QtCore
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt6.QtCore import Qt
 
 from widgets.ui_styles import QtAlignCenter, QtAlignRight, QtAlignVCenter
@@ -46,6 +46,7 @@ class StockListTable(_BaseTable):
         self.table.setColumnCount(4)
         self.table.setRowCount(self.rows)
         self.table.setHorizontalHeaderLabels(["종목명", "종목코드", "현재가", "전일대비"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         apply_header_style(self.table, BLUE_HEADER)
 
         self.table.setColumnWidth(0, 150)  # 종목명
