@@ -129,39 +129,125 @@ class DBService:
                 return False
 
     def get_trades_by_user(self, user_id: int, limit: int = 100):
-        with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute(
-                """
-                SELECT
-                    a.account_no   AS account_no,
-                    t.symbol       AS symbol,
-                    t.side         AS side,
-                    t.price        AS price,
-                    t.quantity     AS quantity,
-                    t.trade_time   AS trade_time,
-                    COALESCE(t.remark, '') AS remark
-                FROM trades t
-                JOIN accounts a ON t.account_id = a.id
-                WHERE t.user_id = %s
-                ORDER BY t.trade_time DESC
-                LIMIT %s;
-                """,
-                (user_id, limit),
-            )
-            return cur.fetchall()
+        """
+        trades 테이블 기준으로 특정 사용자의 체결내역 조회
+        - BUY 또는 SELL 주문 중 어느 한쪽이라도 user_id가 일치하면 포함
+        - UI용 컬럼: account_no, symbol, side, price, quantity, trade_time, remark
+        """
+        from psycopg2.extras import DictCursor
 
-    def insert_dummy_trade(self, user_id: int, account_id: int) -> None:
-        """테스트용 더미 체결 1건 삽입"""
-        with self.conn.cursor() as cur:
+        with self.conn.cursor(cursor_factory=DictCursor) as cur:
             cur.execute(
                 """
-                INSERT INTO trades
-                    (user_id, account_id, symbol, side, price, quantity, trade_time, exchange, remark)
-                VALUES
-                    (%s, %s, 'SOLUSDT', 'BUY', 123.45, 1.23, now(), 'BINANCE', 'dummy from UI');
+                SELECT 
+                    a.account_no AS account_no,
+                    t.symbol      AS symbol,
+                    CASE
+                        WHEN ob.user_id = %(user_id)s THEN 'BUY'
+                        WHEN os.user_id = %(user_id)s THEN 'SELL'
+                        ELSE 'N/A'
+                    END AS side,
+                    t.price       AS price,
+                    t.quantity    AS quantity,
+                    t.trade_time  AS trade_time,
+                    ''::text      AS remark
+                FROM trades t
+                JOIN orders ob ON t.buy_order_id  = ob.id
+                JOIN orders os ON t.sell_order_id = os.id
+                JOIN accounts a ON (
+                    (ob.user_id = %(user_id)s AND ob.account_id = a.id)
+                    OR (os.user_id = %(user_id)s AND os.account_id = a.id)
+                )
+                WHERE ob.user_id = %(user_id)s OR os.user_id = %(user_id)s
+                ORDER BY t.trade_time DESC
+                LIMIT %(limit)s;
                 """,
-                (user_id, account_id),
+                {"user_id": user_id, "limit": limit},
             )
+            rows = cur.fetchall()
+            print(f"[DBService] get_trades_by_user({user_id}) -> {len(rows)} rows")
+            return rows
+
+    def insert_dummy_trade(
+            self,
+            user_id: int,
+            account_id: int,
+            symbol: str = "SOLUSDT",
+            price: float | None = None,
+            qty: float = 1.0,
+    ) -> int | None:
+        """
+        현재 스키마 기준 더미 체결 1건 생성:
+
+        1) orders 테이블에 BUY 주문 1개, SELL 주문 1개를 FILLED 상태로 INSERT
+        2) trades 테이블에 (buy_order_id, sell_order_id, symbol, price, quantity, trade_time) INSERT
+
+        - user_id, account_id : 둘 다 같은 사람/계좌로 self-trade 형태 (테스트용)
+        - symbol, price, qty : 필요하면 호출할 때 override
+        """
+
+        side_buy = "BUY"
+        side_sell = "SELL"
+
+        # 가격 안 주면 대충 랜덤 생성
+        if price is None:
+            base = 100.0
+            price = round(base + random.uniform(-5, 5), 2)
+
+        qty = float(qty)
+
+        try:
+            with self.conn.cursor() as cur:
+                # 1) BUY 주문 생성 (이미 전부 체결된 주문이라고 가정: remaining_qty=0, status='FILLED')
+                cur.execute(
+                    """
+                    INSERT INTO orders
+                        (user_id, account_id, symbol, side, price, quantity, remaining_qty, status, created_at)
+                    VALUES
+                        (%s, %s, %s, %s, %s, %s, 0, 'FILLED', now())
+                    RETURNING id;
+                    """,
+                    (user_id, account_id, symbol, side_buy, price, qty),
+                )
+                buy_order_id = cur.fetchone()[0]
+
+                # 2) SELL 주문 생성 (마찬가지로 전부 체결된 주문)
+                cur.execute(
+                    """
+                    INSERT INTO orders
+                        (user_id, account_id, symbol, side, price, quantity, remaining_qty, status, created_at)
+                    VALUES
+                        (%s, %s, %s, %s, %s, %s, 0, 'FILLED', now())
+                    RETURNING id;
+                    """,
+                    (user_id, account_id, symbol, side_sell, price, qty),
+                )
+                sell_order_id = cur.fetchone()[0]
+
+                # 3) trades 테이블에 체결 생성
+                cur.execute(
+                    """
+                    INSERT INTO trades
+                        (buy_order_id, sell_order_id, symbol, price, quantity, trade_time)
+                    VALUES
+                        (%s, %s, %s, %s, %s, now())
+                    RETURNING id;
+                    """,
+                    (buy_order_id, sell_order_id, symbol, price, qty),
+                )
+                trade_id = cur.fetchone()[0]
+
+            self.conn.commit()
+            print("[DBService] insert_dummy_trade trade_id =", trade_id,
+                  "buy_order_id =", buy_order_id, "sell_order_id =", sell_order_id)
+            return trade_id
+
+        except psycopg2.Error as e:
+            self.conn.rollback()
+            print("[DBService] insert_dummy_trade error:", e)
+            return None
+
+
 
     def update_balance(self, account_id: int, delta: float):
         """거래 후 잔액 반영 (BUY는 -, SELL은 +)"""
@@ -236,6 +322,20 @@ class DBService:
                     """,
                     (remaining_qty, status, order_id),
                 )
+    def get_working_orders_by_user(self, user_id: int, limit: int = 100):
+        """해당 유저의 미체결 주문 목록 반환"""
+        with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, symbol, side, price, quantity, remaining_qty, created_at
+                FROM orders
+                WHERE user_id = %s AND status IN ('WORKING','PARTIAL')
+                ORDER BY created_at DESC
+                LIMIT %s;
+                """,
+                (user_id, limit),
+            )
+            return cur.fetchall()
 
 
     def close(self):

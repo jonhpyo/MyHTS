@@ -1,7 +1,8 @@
 # widgets/ready_order_table.py
 try:
     from PyQt6 import QtWidgets, QtGui
-    from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
+    from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+
     _QT6 = True
 except Exception:
     from PyQt5 import QtWidgets, QtGui
@@ -83,3 +84,78 @@ class ReadyOrdersTable:
                 t.setItem(row, col, item)
 
         t.resizeColumnsToContents()
+
+    def render_from_db(self, rows):
+        """
+        DB에서 읽은 미체결 주문 리스트를 테이블에 표시.
+        기대 컬럼:
+          id, symbol, side, price, qty, remaining_qty, created_at
+        (psycopg2.extras.DictRow 또는 dict/tuple 모두 대응)
+        """
+        t = self.table
+        t.clearContents()
+
+        if not rows:
+            t.setRowCount(0)
+            return
+
+        t.setRowCount(len(rows))
+
+        import datetime
+
+        for r, row in enumerate(rows):
+            # DictRow / dict / tuple 모두 처리
+            try:
+                if hasattr(row, "keys"):  # DictRow or dict
+                    oid      = row.get("id")
+                    symbol   = row.get("symbol", "")
+                    side     = str(row.get("side", "")).upper()
+                    price    = float(row.get("price", 0.0))
+                    qty      = float(row.get("qty", 0.0))
+                    remaining= float(row.get("remaining_qty", 0.0))
+                    ctime    = row.get("created_at")
+                else:
+                    # SELECT id, symbol, side, price, qty, remaining_qty, created_at 순서라고 가정
+                    oid, symbol, side, price, qty, remaining, ctime = row
+                    side = str(side).upper()
+                    price = float(price)
+                    qty = float(qty)
+                    remaining = float(remaining)
+
+                # 주문 시간 문자열
+                if isinstance(ctime, (datetime.datetime, datetime.time)):
+                    tm_str = ctime.strftime("%H:%M:%S")
+                else:
+                    tm_str = str(ctime or "")
+
+                # 색상: BUY=빨강, SELL=파랑
+                color = QtGui.QColor("red") if side == "BUY" else QtGui.QColor("blue")
+
+                items = [
+                    QTableWidgetItem(str(oid)),              # 주문ID
+                    QTableWidgetItem(symbol),                # 종목
+                    QTableWidgetItem(side),                  # 매도/매수
+                    QTableWidgetItem(f"{price:,.2f}"),       # 가격
+                    QTableWidgetItem(f"{qty:,.4f}"),         # 총수량
+                    QTableWidgetItem(f"{remaining:,.4f}"),   # 잔량
+                    QTableWidgetItem(tm_str),                # 주문시간
+                ]
+
+                for col, item in enumerate(items):
+                    if col in (0, 1, 2, 6):  # ID, 종목, 방향, 시간
+                        align = QtAlignCenter
+                    else:                    # 가격, 수량, 잔량
+                        align = QtAlignRight | QtAlignVCenter
+                    item.setTextAlignment(align)
+
+                    if col in (2, 3, 4, 5):
+                        item.setForeground(QtGui.QBrush(color))
+
+                    t.setItem(r, col, item)
+
+            except Exception as e:
+                print(f"[ReadyOrdersTable] row {r} render error:", e)
+                continue
+
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        apply_header_style(self.table, BLUE_HEADER)

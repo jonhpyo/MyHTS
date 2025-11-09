@@ -4,6 +4,8 @@ from services.db_service import DBService
 from pathlib import Path
 import psycopg2
 from ib_insync import util
+
+from services.matching_engine import MatchingEngine
 from widgets.open_account_dialog import OpenAccountDialog
 
 util.useQt()
@@ -62,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.md.start_oracle()
 
         self.db = DBService()
-
+        self.matching = MatchingEngine(self.db)
         self.sim = OrderSimulator()
 
         self._bind_symbol_selector()
@@ -267,8 +269,16 @@ class MainWindow(QtWidgets.QMainWindow):
     # 타이머/버튼/로그인
     # --------------------------
     def _on_timer(self):
-        self.ctrl.poll_and_render()
-        self.ready_orders.render(self.sim.working)  # 미체결 갱신
+        self.ctrl.poll_and_render()  # 시세/호가
+
+        if self.auth.current_user:
+            user_id = self.db.get_user_id_by_email(self.auth.current_user)
+            if user_id:
+                rows = self.db.get_working_orders_by_user(user_id, limit=100)
+                self.ready_orders.render_from_db(rows)
+        else:
+            # 로그인 안 되어 있으면 빈 화면
+            self.ready_orders.render([])
 
     def _require_login(self) -> bool:
         if self.auth.current_user:
@@ -296,16 +306,42 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_sell_lmt(self):
         if not self._require_login():
             return
+
         qty, ok1 = QtWidgets.QInputDialog.getInt(self, "지정가 매도", "수량:", 1, 1)
         if not ok1:
             return
         px, ok2 = QtWidgets.QInputDialog.getDouble(self, "지정가 매도", "가격:", 0.0, 0, 1e12, 2)
         if not ok2 or px <= 0:
             return
-        remain = self.ctrl.sell_limit(px, qty)
-        self.ready_orders.render(self.sim.working)
-        if remain:
-            QtWidgets.QMessageBox.information(self, "지정가", f"잔량 {remain} 대기 등록")
+
+        # 로그인 사용자/계좌 찾기
+        user_email = self.auth.current_user
+        user_id = self.db.get_user_id_by_email(user_email)
+        account_id = self.db.get_primary_account_id(user_id)  # 이미 만든 메서드라고 가정
+
+        symbol = self.md.current_symbol()  # 예: 'SOLUSDT'
+
+        # 1) 주문을 DB에 INSERT
+        order_id = self.db.insert_order(
+            user_id=user_id,
+            account_id=account_id,
+            symbol=symbol,
+            side="SELL",
+            price=px,
+            qty=qty,
+        )
+
+        if not order_id:
+            QtWidgets.QMessageBox.warning(self, "Order", "주문 저장 실패")
+            return
+
+        # 2) 매칭 엔진 호출 → 다른 사람 주문과 맞으면 체결 발생
+        self.matching.match_symbol(symbol)
+
+        # 3) UI 갱신 (미체결 / 체결)
+        self._refresh_orders_and_trades()
+
+        QtWidgets.QMessageBox.information(self, "Order", f"지정가 매도 주문이 접수되었습니다. (id={order_id})")
 
     def _build_menu(self):
         mb = self.menuBar()
@@ -405,6 +441,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # 5) 그리고 DB에서 다시 읽어서 table_trades에 렌더링
         self._load_trades_from_db()
 
+    def _refresh_orders_and_trades(self):
+        if not self.auth.current_user:
+            self.ready_orders.render_from_db([])  # 미체결 비우기
+            self.trades.render_from_db([])  # 체결 비우기 or 유지
+            return
+
+        user_id = self.db.get_user_id_by_email(self.auth.current_user)
+        # 1) 미체결
+        working = self.db.get_working_orders_by_user(user_id, limit=100)
+        self.ready_orders.render_from_db(working)
+
+        # 2) 체결 (전체 or 내 계정 기준)
+        symbol = self.md.current_symbol()
+        recent_trades = self.db.get_trades_by_symbol(symbol, limit=100)
+        self.trades.render_from_db(recent_trades)
 
     def closeEvent(self, e):
         self.timer.stop()
