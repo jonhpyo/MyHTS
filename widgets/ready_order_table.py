@@ -1,80 +1,85 @@
-# widgets/ready_orders_table.py
-from typing import List, Any
-# PyQt6 우선, 실패 시 PyQt5 폴백
+# widgets/ready_order_table.py
 try:
-    from PyQt6 import QtWidgets, QtGui, QtCore
-    QtAlignCenter = QtCore.Qt.AlignmentFlag.AlignCenter
-    QtAlignRight  = QtCore.Qt.AlignmentFlag.AlignRight
-    QtAlignVCenter = QtCore.Qt.AlignmentFlag.AlignVCenter
+    from PyQt6 import QtWidgets, QtGui
+    from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
+    _QT6 = True
 except Exception:
-    from PyQt5 import QtWidgets, QtGui, QtCore
-    QtAlignCenter = QtCore.Qt.AlignCenter
-    QtAlignRight  = QtCore.Qt.AlignRight
-    QtAlignVCenter = QtCore.Qt.AlignVCenter
+    from PyQt5 import QtWidgets, QtGui
+    from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+    _QT6 = False
 
-from widgets.ui_styles import apply_header_style, BLUE_HEADER
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+from .ui_styles import BLUE_HEADER, apply_header_style, QtAlignCenter, QtAlignRight, QtAlignVCenter
+from models.working_order import WorkingOrder
+from models.order import Side
 
 
 class ReadyOrdersTable:
-    """
-    미체결(대기) 주문 테이블 위젯 래퍼.
-    - render(orders)로 전체 갱신
-    - orders 원소는 dataclass(WorkingOrder) 또는 dict 모두 지원
-      (id, time, type, side, price, qty, status 필드/키 사용)
-    """
-    COLUMNS = ["시간", "주문ID", "종류", "Side", "가격", "수량", "상태"]
+    """미체결 주문(WorkingOrder) 리스트를 표시하는 테이블"""
 
-    def __init__(self, table: QtWidgets.QTableWidget):
+    def __init__(self, table: QTableWidget):
         self.table = table
         self._init_ui()
 
     def _init_ui(self):
         t = self.table
-        t.setObjectName(t.objectName() or "tap_ready_trades")
-        t.setColumnCount(len(self.COLUMNS))
-        t.setHorizontalHeaderLabels(self.COLUMNS)
+        headers = ["주문ID", "종목", "매도/매수", "가격", "총수량", "잔량", "주문시간"]
+        t.setColumnCount(len(headers))
+        t.setHorizontalHeaderLabels(headers)
+        apply_header_style(t, BLUE_HEADER)
         t.verticalHeader().setVisible(False)
-        # 읽기 전용 & 행 선택
+
+        # ✅ PyQt6 / PyQt5 호환 분기
         if hasattr(QtWidgets.QAbstractItemView, "EditTrigger"):
             t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-            t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+            t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
         else:
             t.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-            t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+            t.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
 
-        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        apply_header_style(t, BLUE_HEADER)
-
-    def render(self, orders: List[Any]):
+    def render(self, working_orders: list[WorkingOrder]):
+        """미체결 주문 리스트를 테이블에 표시"""
         t = self.table
-        rows = orders or []
-        t.setRowCount(len(rows))
+        t.clearContents()
 
-        for r, od in enumerate(rows):
-            # dataclass/obj/dict 모두 대응
-            get = (lambda k, d=None: getattr(od, k, d)) if not isinstance(od, dict) else (lambda k, d=None: od.get(k, d))
+        if not working_orders:
+            t.setRowCount(0)
+            return
 
-            time  = get("time", "")
-            oid   = get("id", "")
-            otype = get("type", "LMT")
-            side  = get("side", "")
-            price = float(get("price", 0.0) or 0.0)
-            qty   = int(get("qty", 0) or 0)
-            stat  = get("status", "WORKING")
+        t.setRowCount(len(working_orders))
 
-            t.setItem(r, 0, QtWidgets.QTableWidgetItem(str(time)))
-            t.setItem(r, 1, QtWidgets.QTableWidgetItem(str(oid)))
-            t.setItem(r, 2, QtWidgets.QTableWidgetItem(str(otype)))
-            t.setItem(r, 3, QtWidgets.QTableWidgetItem(str(side)))
+        for row, wo in enumerate(working_orders):
+            # 색상: BUY=빨강, SELL=파랑
+            is_buy = (wo.side == Side.BUY or str(wo.side).upper() == "BUY")
+            color = QtGui.QColor("red") if is_buy else QtGui.QColor("blue")
 
-            it_price = QtWidgets.QTableWidgetItem(f"{price:,.2f}")
-            it_qty   = QtWidgets.QTableWidgetItem(f"{qty:,}")
-            it_price.setTextAlignment(QtAlignRight | QtAlignVCenter)
-            it_qty.setTextAlignment(QtAlignRight | QtAlignVCenter)
+            # 종목은 WorkingOrder 에 없으면 나중에 symbol 필드 추가해서 쓰면 됨
+            symbol = getattr(wo, "symbol", "")
 
-            t.setItem(r, 4, it_price)
-            t.setItem(r, 5, it_qty)
-            t.setItem(r, 6, QtWidgets.QTableWidgetItem(str(stat)))
+            # 주문 시간
+            import time
+            tm_str = ""
+            if wo.created_at:
+                tm_str = time.strftime("%H:%M:%S", time.localtime(wo.created_at))
+
+            items = [
+                QTableWidgetItem(str(wo.id)),           # 주문ID
+                QTableWidgetItem(symbol),               # 종목
+                QTableWidgetItem(wo.side.name),        # 매도/매수 (Side enum 기준)
+                QTableWidgetItem(f"{wo.price:,.2f}"),  # 가격
+                QTableWidgetItem(str(wo.qty)),         # 총수량
+                QTableWidgetItem(str(wo.remaining)),   # 잔량
+                QTableWidgetItem(tm_str),              # 주문시간
+            ]
+
+            for col, item in enumerate(items):
+                if col in (0, 1, 2, 6):  # ID, 종목, 방향, 시간
+                    align = QtAlignCenter
+                else:                    # 가격, 수량, 잔량
+                    align = QtAlignRight | QtAlignVCenter
+                item.setTextAlignment(align)
+                if col in (2, 3, 4, 5):  # 방향/가격/수량/잔량에 색 적용
+                    item.setForeground(QtGui.QBrush(color))
+
+                t.setItem(row, col, item)
 
         t.resizeColumnsToContents()

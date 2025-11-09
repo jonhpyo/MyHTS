@@ -2,7 +2,7 @@
 import os
 from services.db_service import DBService
 from pathlib import Path
-
+import psycopg2
 from ib_insync import util
 from widgets.open_account_dialog import OpenAccountDialog
 
@@ -82,7 +82,9 @@ class MainWindow(QtWidgets.QMainWindow):
             trades_widget=self.trades,
             sim=self.sim,
             account=self.account,
-            balance_table=self.balance_table
+            balance_table=self.balance_table,
+            db = self.db,
+            auth = self.auth
         )
 
         # --- 버튼 핸들러 연결 ---
@@ -327,6 +329,9 @@ class MainWindow(QtWidgets.QMainWindow):
         act_open_account = menu.addAction("open Account")
         act_open_account.triggered.connect(self._open_account_dialog)
 
+        # 🧪 더미 체결 추가 (테스트용)
+        act_dummy_trade = menu.addAction("Insert Dummy Trade")
+        act_dummy_trade.triggered.connect(self._insert_dummy_trade_for_current_user)
 
         menu.addSeparator()
 
@@ -362,6 +367,44 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_account_dialog(self):
         dlg = OpenAccountDialog(self.db, self)
         dlg.exec()
+
+    def _load_trades_from_db(self):
+        user_email = self.auth.current_user
+        if not user_email:
+            QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
+            return
+
+        user_id = self.db.get_user_id_by_email(user_email)
+        trades = self.db.get_trades_by_user(user_id, limit=100)
+        self.trades.render_from_db(trades)
+
+    def _insert_dummy_trade_for_current_user(self):
+        # 1) 로그인 체크
+        if not self.auth.current_user:
+            QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
+            return
+
+        # 2) user_id 찾기
+        user_email = self.auth.current_user
+        user_id = self.db.get_user_id_by_email(user_email)
+        if user_id is None:
+            QtWidgets.QMessageBox.warning(self, "DB", "현재 로그인한 사용자를 DB에서 찾을 수 없습니다.")
+            return
+
+        # 3) 계좌 하나 가져오기
+        account_id = self.db.get_primary_account_id(user_id)
+        if account_id is None:
+            QtWidgets.QMessageBox.warning(self, "Account", "해당 사용자에 대한 계좌가 없습니다. 먼저 계좌를 개설하세요.")
+            return
+
+        # 4) 더미 체결 1건 삽입
+        self.db.insert_dummy_trade(user_id, account_id)
+
+        QtWidgets.QMessageBox.information(self, "Dummy Trade", "더미 체결 1건을 추가했습니다.")
+
+        # 5) 그리고 DB에서 다시 읽어서 table_trades에 렌더링
+        self._load_trades_from_db()
+
 
     def closeEvent(self, e):
         self.timer.stop()
