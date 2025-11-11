@@ -208,7 +208,8 @@ class TradesTable(_BaseTable):
                     print(f"[TradesTable] Row {i} 렌더링 중 오류:", row_err)
                     continue
 
-            t.resizeColumnsToContents()
+            t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            apply_header_style(self.table, BLUE_HEADER)
 
         except Exception as e:
             print("[TradesTable] render_from_db 전체 오류:", e)

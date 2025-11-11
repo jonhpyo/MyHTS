@@ -26,6 +26,7 @@ class OrderBookController:
         balance_table: BalanceTable,
         db: DBService,
         auth: AuthController,
+        use_local_exchange: bool = False,
     ):
         self.md = md_service
         self.ob_table = orderbook_widget
@@ -36,13 +37,18 @@ class OrderBookController:
         self.db = db
         self.auth = auth
         self.last_depth: Optional[DepthSnapshot] = None
+        self.use_local_exchange = use_local_exchange
 
     # -------------------------------------------------
     # 시세 폴링 + 미체결 매칭
     # -------------------------------------------------
+    # -------------------------------------------------
+    # 시세 폴링 + 미체결 매칭 + 로컬 잔량 덮어쓰기
+    # -------------------------------------------------
     def poll_and_render(self):
+        # 1) 시세는 그냥 가져와서 화면에 보여줄 기준으로 사용
         try:
-            snap = self.md.fetch_depth()  # 심볼 인자는 안 넘기는 쪽으로 단순화
+            snap = self.md.fetch_depth()
         except TypeError:
             snap = self.md.fetch_depth()
 
@@ -53,14 +59,49 @@ class OrderBookController:
         prev_sym = getattr(self.last_depth, "symbol", None)
         snap_sym = getattr(snap, "symbol", cur_sym)
 
-        # 심볼 변경 감지 시 초기화
         if prev_sym is not None and snap_sym is not None and prev_sym != snap_sym:
             self._reset_on_symbol_change()
 
-        # 미체결 주문 매칭
-        fills, snap2 = self.sim.match_working_on_depth(snap)
-        self._append_fills_and_update_balance(fills)
-        self._apply_depth(snap2)
+        symbol = snap_sym or cur_sym or ""
+        symbol_upper = symbol.upper()
+
+        if self.use_local_exchange:
+            # 🔹 로컬 거래소 모드: 시뮬레이터 X, DB 오더북만 반영
+
+            # 1) DB에서 로컬 오더북 집계
+            if symbol_upper:
+                try:
+                    local_ob = self.db.get_local_orderbook(symbol_upper)
+                except Exception as e:
+                    print("[OrderBookController] get_local_orderbook error:", e)
+                    local_ob = None
+            else:
+                local_ob = None
+
+            # 2) 외부 호가 스냅샷에 로컬 잔량/건수 덮어쓰기
+            if local_ob:
+                bids_map = local_ob.get("bids", {})
+                asks_map = local_ob.get("asks", {})
+
+                new_bids = []
+                for price, _orig_qty, _level in snap.bids:
+                    local = bids_map.get(float(price))
+                    qty = local["qty"] if local else 0.0
+                    cnt = local["cnt"] if local else 0  # ✅ DB 집계 건수
+                    new_bids.append((price, qty, cnt))  # ✅ 3번째 값을 cnt로
+
+                new_asks = []
+                for price, _orig_qty, _level in snap.asks:
+                    local = asks_map.get(float(price))
+                    qty = local["qty"] if local else 0.0
+                    cnt = local["cnt"] if local else 0
+                    new_asks.append((price, qty, cnt))
+
+                snap.bids = new_bids
+                snap.asks = new_asks
+
+            # 3) 오더북 UI 반영
+            self._apply_depth(snap)
 
     # -------------------------------------------------
     # 주문 핸들러
@@ -97,6 +138,36 @@ class OrderBookController:
             )
 
         return remain
+
+    def buy_limit(self, price: float, qty: int) -> int:
+        """
+        지정가 매수:
+        - 시뮬레이터 기준으로 지금 호가에서 바로 체결될 부분은 체결
+        - 남는 수량이 있으면 DB에 미체결 주문(WORKING)으로 기록
+        """
+        if not self.last_depth:
+            return qty
+
+        # 시뮬레이터에 위임 (sell_limit 과 대칭 메서드가 있다고 가정)
+        fills, new_depth, remain = self.sim.buy_limit_now_or_queue(price, qty, self.last_depth)
+
+        # 체결분 처리 (체결 테이블 + 잔고 반영)
+        self._append_fills_and_update_balance(fills)
+
+        # 오더북 갱신
+        self._apply_depth(new_depth)
+
+        # 남은 수량이 있으면 미체결 주문으로 DB에 기록
+        if remain > 0:
+            self._record_working_order_to_db(
+                side="BUY",
+                price=price,
+                qty=qty,
+                remaining=remain,
+            )
+
+        return remain
+
 
     # ---- 심볼 변경 시 초기화 (MainWindow 에서 호출해도 OK) ----
     def on_symbol_changed(self, sym: str):
@@ -138,10 +209,11 @@ class OrderBookController:
     # 체결 처리 + 잔고 업데이트 + DB 기록
     # -------------------------------------------------
     def _append_fills_and_update_balance(self, fills: List[Fill]):
+        """체결 리스트를 UI/시뮬 계좌/DB(잔고)에 반영"""
         if not fills:
             return
 
-        # 로그인 유저 / 계좌 정보 준비 (DB 기록용)
+        # 로그인 유저 / 계좌 정보 (잔고 업데이트용)
         user_email = getattr(self.auth, "current_user", None)
         user_id = None
         account_id = None
@@ -150,43 +222,42 @@ class OrderBookController:
             if user_id is not None:
                 account_id = self.db.get_primary_account_id(user_id)
 
-        # 1) UI 체결표 + 2) AccountService + 3) DB(trades) + 4) DB(balance) 한 번에
         delta_cash = 0.0
-        exchange = getattr(self.md, "provider", "MOCK")
         symbol = self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
 
         for f in fills:
-            # 1) UI 체결표: TradesTable.add_fill 사용
-            self.trades.add_fill(f.side, f.price, f.qty)
+            # ---- 1) side 를 문자열로 정규화 (Enum / str 모두 지원) ----
+            if hasattr(f.side, "name"):          # Enum (Side.BUY / Side.SELL)
+                side_str = f.side.name.upper()
+            else:                                # 이미 str 이라면
+                side_str = str(f.side).upper()
 
-            # 2) 현금 변화 (시뮬레이션 계좌)
-            notional = float(f.price) * int(f.qty)
-            if f.side.upper() == "SELL":
+            # ---- 2) UI 체결표에 반영 ----
+            # TradesTable.add_fill(side: str, price: float, qty: int)
+            self.trades.add_fill(side_str, float(f.price), int(f.qty))
+
+            # ---- 3) 시뮬레이션 계좌 현금 변화 ----
+            notional = float(f.price) * float(f.qty)
+            if side_str == "SELL":
                 delta_cash += notional
             else:  # BUY
                 delta_cash -= notional
 
-            # 3) DB 체결 기록
-            if user_id is not None and account_id is not None:
-                self.db.insert_trade(
-                    user_id=user_id,
-                    account_id=account_id,
-                    symbol=symbol or f.symbol,
-                    side=f.side.upper(),
-                    price=float(f.price),
-                    qty=float(f.qty),
-                    exchange=exchange,
-                    remark=None,
-                )
+            # ⚠️ 지금은 trades 테이블 구조가 buy_order_id/sell_order_id 기반이라
+            # 여기에서 직접 trades 에 INSERT 하지는 않는다.
+            # 실제 로컬 거래소 모드에서는 매칭 엔진이 orders → trades 를 기록하고,
+            # 클라이언트는 그걸 읽어서 화면에 그리는 쪽이 자연스럽다.
 
-        # 4) 시뮬레이션 계좌에 반영 + 잔고 테이블 업데이트
+        # ---- 4) 시뮬레이션 계좌 + 잔고 테이블 갱신 ----
         if delta_cash != 0.0:
+            # 메모리 상 계좌
             self.account.apply_cash(delta_cash)
             self.balance_table.render(self.account.state)
 
-            # DB 계좌 잔액 업데이트
+            # DB accounts 잔고도 테스트/로그용으로 반영
             if account_id is not None:
                 self.db.update_balance(account_id, delta_cash)
+
 
     def _record_working_order_to_db(self, side: str, price: float, qty: float, remaining: float):
         """미체결 주문을 orders 테이블에 기록"""

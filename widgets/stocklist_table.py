@@ -45,9 +45,11 @@ class StockListTable(_BaseTable):
         self.data: List[List[object]] = []
         self.table.setColumnCount(4)
         self.table.setRowCount(self.rows)
+
         self.table.setHorizontalHeaderLabels(["종목명", "종목코드", "현재가", "전일대비"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         apply_header_style(self.table, BLUE_HEADER)
+        self.table.verticalHeader().setVisible(False)
 
         self.table.setColumnWidth(0, 150)  # 종목명
         self.table.setColumnWidth(1, 120)  # 코드

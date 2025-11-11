@@ -49,14 +49,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setWindowTitle("NASDAQ EXTENDED")
 
-
+        depth_levels = 10
         # --- 상태/서비스 초기화 ---
         self.auth = AuthController()
 
         initial_cash = float(os.getenv("INITIAL_CASH", "0"))
+        # self.use_local_exchange = "True" os.getenv("USE_LOCAL_EXCHANGE", "False")
+        self.use_local_exchange = "True"
         self.account = AccountService(initial_cash=initial_cash)
 
-        self.md = MarketDataService(use_mock=use_mock, provider="BINANCE", symbol="solusdt", rows=10,)
+        self.md = MarketDataService(use_mock=use_mock, provider="BINANCE", symbol="solusdt", rows=depth_levels,)
         # if not use_mock:
         #     self.md.start_ib()
         # self.md.start_binance()
@@ -68,8 +70,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sim = OrderSimulator()
 
         self._bind_symbol_selector()
+
+
         # --- 위젯 래퍼 바인딩 ---
-        self.orderbook = OrderBookTable(self.table_hoga, row_count=21, base_index=10)
+        self.orderbook = OrderBookTable(self.table_hoga, row_count=depth_levels*2+1, base_index=depth_levels)
         self.stocklist = StockListTable(self.table_stocklist, rows=10)
         self.trades = TradesTable(self.table_trades, max_rows=30)
 
@@ -86,7 +90,8 @@ class MainWindow(QtWidgets.QMainWindow):
             account=self.account,
             balance_table=self.balance_table,
             db = self.db,
-            auth = self.auth
+            auth = self.auth,
+            use_local_exchange=bool(self.use_local_exchange),
         )
 
         # --- 버튼 핸들러 연결 ---
@@ -95,6 +100,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.button_sell_market_price.clicked.connect(self._on_sell_mkt)
         self.button_buy_market_price.clicked.connect(self._on_buy_mkt)
         self.button_sell_fix_price.clicked.connect(self._on_sell_lmt)
+        self.button_buy_fix_price.clicked.connect(self._on_buy_lmt)
+
+        # ✅ 미체결 일괄취소 버튼
+        if hasattr(self, "btn_cancel_orders"):
+            self.btn_cancel_orders.clicked.connect(self._on_cancel_selected_orders)
 
         # --- 메뉴/로그인 ---
         self._build_menu()
@@ -140,21 +150,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if not sym:
             return
 
-        # md에 반영(오라클/피드 재시작 등)
+        # md에 반영
         if hasattr(self.md, "set_symbol"):
-            # 바이낸스는 보통 소문자 사용 -> 정규화해서 전달
-            norm = sym.lower()
-            self.md.set_symbol(norm)
-
-            # 심볼 변경 시 구독/스트림 재시작이 필요하면 수행
-            # 구현되어 있는 메서드에 맞춰 아래 중 하나가 존재한다면 호출
-            if hasattr(self.md, "restart_oracle"):
-                self.md.restart_oracle()
-            elif hasattr(self.md, "start_oracle"):
-                # 간단히 다시 시작 (내부에서 이미 닫고 다시 열도록 구현돼 있으면 더 깔끔)
-                self.md.start_oracle()
-            elif hasattr(self.md, "restart"):
-                self.md.restart()
+            self.md.set_symbol(sym.lower())  # BINANCE 는 소문자
 
         # 화면 초기화
         self.ctrl.last_depth = None
@@ -166,14 +164,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.trades.trades.clear()
             self.trades._render()
 
-        # 바로 한 번 렌더 유도 (다음 타이머 틱까지 기다리지 않게)
+        # 바로 한 번 폴링해서 새 심볼 호가를 강제 갱신
         try:
             self.ctrl.poll_and_render()
-        except Exception:
-            pass
+        except Exception as e:
+            print("[MainWindow] poll_and_render on symbol change error:", e)
 
-        # 타이틀
-        self.setWindowTitle(f"NASDAQ EXTENDED — {self.auth.current_user or 'Logged out'} — {sym}")
+        self.setWindowTitle(
+            f"NASDAQ EXTENDED — {self.auth.current_user or 'Logged out'} — {sym}"
+        )
 
     # --------------------------
     # 탭/테이블 바인딩 헬퍼
@@ -343,6 +342,101 @@ class MainWindow(QtWidgets.QMainWindow):
 
         QtWidgets.QMessageBox.information(self, "Order", f"지정가 매도 주문이 접수되었습니다. (id={order_id})")
 
+    def _on_buy_lmt(self):
+        if not self._require_login():
+            return
+
+        # 1) 수량 입력
+        qty, ok1 = QtWidgets.QInputDialog.getInt(
+            self, "지정가 매수", "수량:", 1, 1
+        )
+        if not ok1:
+            return
+
+        # 2) 가격 입력
+        px, ok2 = QtWidgets.QInputDialog.getDouble(
+            self, "지정가 매수", "가격:", 0.0, 0, 1e12, 2
+        )
+        if not ok2 or px <= 0:
+            return
+        #
+        # 로그인 사용자/계좌 찾기
+        user_email = self.auth.current_user
+        user_id = self.db.get_user_id_by_email(user_email)
+        account_id = self.db.get_primary_account_id(user_id)  # 이미 만든 메서드라고 가정
+
+        symbol = self.md.current_symbol()  # 예: 'SOLUSDT'
+
+        # 1) 주문을 DB에 INSERT
+        order_id = self.db.insert_order(
+            user_id=user_id,
+            account_id=account_id,
+            symbol=symbol,
+            side="BUY",
+            price=px,
+            qty=qty,
+        )
+
+        if not order_id:
+            QtWidgets.QMessageBox.warning(self, "Order", "주문 저장 실패")
+            return
+
+        # 2) 매칭 엔진 호출 → 다른 사람 주문과 맞으면 체결 발생
+        self.matching.match_symbol(symbol)
+
+        # 3) UI 갱신 (미체결 / 체결)
+        self._refresh_orders_and_trades()
+
+        QtWidgets.QMessageBox.information(self, "Order", f"지정가 매수 주문이 접수되었습니다. (id={order_id})")
+
+        # # 3) 컨트롤러에 전달
+        # remain = self.ctrl.buy_limit(px, qty)
+        #
+        # # 4) 미체결 테이블 갱신 (ReadyOrdersTable)
+        # self.ready_orders.render(self.sim.working)
+        #
+        # # 5) 잔량 있으면 안내
+        # if remain:
+        #     QtWidgets.QMessageBox.information(
+        #         self,
+        #         "지정가",
+        #         f"잔량 {remain} 대기 등록",
+        #     )
+
+    def _on_cancel_selected_orders(self):
+        """미체결 테이블에서 선택된 주문들을 일괄 취소"""
+        order_ids = self.ready_orders.get_checked_order_ids()
+        if not order_ids:
+            QtWidgets.QMessageBox.information(self, "취소", "선택된 주문이 없습니다.")
+            return
+
+        reply = QtWidgets.QMessageBox.question(self,"일괄 취소",f"{len(order_ids)}건의 주문을 취소하시겠습니까?", QtWidgets.QMessageBox.StandardButton.Yes| QtWidgets.QMessageBox.StandardButton.No,)
+        if reply != QtWidgets.QMessageBox.StandardButton.Yes:
+            return
+
+        # DB에서 취소 처리
+        self.db.cancel_orders(order_ids)
+
+        # 화면 갱신 (미체결/호가/잔고 등)
+        if hasattr(self, "_refresh_orders_and_trades"):
+            self._refresh_orders_and_trades()
+        else:
+            # 최소한 미체결 테이블은 새로 불러오기
+            self._reload_working_orders()
+
+        QtWidgets.QMessageBox.information(
+            self, "취소", f"{len(order_ids)}건의 주문이 취소되었습니다."
+        )
+
+    def _reload_working_orders(self):
+        user_email = self.auth.current_user
+        if not user_email:
+            return
+        user_id = self.db.get_user_id_by_email(user_email)
+        rows = self.db.get_working_orders_by_user(user_id)
+        self.ready_orders.render_from_db(rows)
+
+
     def _build_menu(self):
         mb = self.menuBar()
         try:
@@ -454,7 +548,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # 2) 체결 (전체 or 내 계정 기준)
         symbol = self.md.current_symbol()
-        recent_trades = self.db.get_trades_by_symbol(symbol, limit=100)
+        recent_trades = self.db.get_trades_by_user(user_id, limit=100)
         self.trades.render_from_db(recent_trades)
 
     def closeEvent(self, e):

@@ -55,6 +55,15 @@ class MarketDataService:
             return
 
         self.symbol = new_sym
+        print("[MarketDataService] set_symbol ->", self.symbol)
+
+        # # 🔹 이전 오라클 정리
+        # if self._oracle:
+        #     try:
+        #         self._oracle.stop()
+        #     except Exception as e:
+        #         print("[MarketDataService] oracle.stop error:", e)
+        #     self._oracle = None
 
         # 기존 스트림/구독 정리
         try:
@@ -171,7 +180,7 @@ class MarketDataService:
             and self._started_at
             and (time.time() - self._started_at) > self.fallback_after_sec
         ):
-            print("⚠️ No depth update yet, switching to mock for safety.")
+            # print("⚠️ No depth update yet, switching to mock for safety.")
             return self._gen_mock_depth()
 
         return None
@@ -187,6 +196,8 @@ class MarketDataService:
         if self._oracle:
             self._oracle.stop()
             self._oracle = None
+
+        self._clear_buffers()
 
     # ---------- 목데이터 ----------
     def _gen_mock_depth(self) -> DepthSnapshot:

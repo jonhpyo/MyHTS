@@ -1,15 +1,19 @@
 # widgets/ready_order_table.py
 try:
-    from PyQt6 import QtWidgets, QtGui
+    from PyQt6 import QtWidgets, QtGui, QtCore
+    from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 
     _QT6 = True
 except Exception:
-    from PyQt5 import QtWidgets, QtGui
+    from PyQt5 import QtWidgets, QtGui, QtCore
+    from PyQt5.QtCore import Qt
     from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
     _QT6 = False
 
-from .ui_styles import BLUE_HEADER, apply_header_style, QtAlignCenter, QtAlignRight, QtAlignVCenter
+from .ui_styles import QtAlignCenter, QtAlignRight, QtAlignVCenter
+from .ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
+
 from models.working_order import WorkingOrder
 from models.order import Side
 
@@ -23,19 +27,73 @@ class ReadyOrdersTable:
 
     def _init_ui(self):
         t = self.table
-        headers = ["주문ID", "종목", "매도/매수", "가격", "총수량", "잔량", "주문시간"]
+        headers = ["선택", "주문ID", "종목", "매도/매수", "가격", "총수량", "잔량", "주문시간"]
         t.setColumnCount(len(headers))
         t.setHorizontalHeaderLabels(headers)
         apply_header_style(t, BLUE_HEADER)
         t.verticalHeader().setVisible(False)
 
-        # ✅ PyQt6 / PyQt5 호환 분기
-        if hasattr(QtWidgets.QAbstractItemView, "EditTrigger"):
-            t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-            t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        # ✅ 편집 트리거는 기본값/또는 클릭 허용으로 둔다 (체크박스용)
+        if _QT6:
+            t.setEditTriggers(
+                QtWidgets.QAbstractItemView.EditTrigger.AllEditTriggers
+            )
         else:
-            t.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-            t.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+            t.setEditTriggers(
+                QtWidgets.QAbstractItemView.AllEditTriggers
+            )
+
+        # 선택은 편한 걸로, 예: 행 선택 / 다중 선택
+        if _QT6:
+            t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+            t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
+        else:
+            t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+            t.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+
+
+    def get_selected_order_ids(self) -> list[int]:
+        """테이블에서 선택된 행들의 주문ID 리스트 반환"""
+        t = self.table
+        ids: set[int] = set()
+
+        sel_model = t.selectionModel()
+        if not sel_model:
+            return []
+
+        for index in sel_model.selectedRows():  # 행 단위 선택
+            row = index.row()
+            item = t.item(row, 0)  # 0번 컬럼 = 주문ID
+            if item:
+                try:
+                    ids.add(int(item.text()))
+                except ValueError:
+                    pass
+
+        return sorted(ids)
+
+    def get_checked_order_ids(self) -> list[int]:
+        """맨 앞 체크박스가 체크된 행들의 주문ID 리스트 반환"""
+        t = self.table
+        ids: list[int] = []
+
+        row_count = t.rowCount()
+        for row in range(row_count):
+            chk = t.item(row, 0)  # 체크박스 아이템
+            if not chk:
+                continue
+            if chk.checkState() != Qt.CheckState.Checked:
+                continue
+
+            id_item = t.item(row, 1)  # 1번 컬럼 = 주문ID
+            if not id_item:
+                continue
+            try:
+                ids.append(int(id_item.text()))
+            except ValueError:
+                pass
+
+        return ids
 
     def render(self, working_orders: list[WorkingOrder]):
         """미체결 주문 리스트를 테이블에 표시"""
@@ -62,28 +120,52 @@ class ReadyOrdersTable:
             if wo.created_at:
                 tm_str = time.strftime("%H:%M:%S", time.localtime(wo.created_at))
 
+            chk_item = QTableWidgetItem()
+            flags = chk_item.flags()
+
+            if _QT6:
+                chk_item.setFlags(
+                    Qt.ItemFlag.ItemIsUserCheckable |
+                    Qt.ItemFlag.ItemIsEnabled |
+                    Qt.ItemFlag.ItemIsSelectable
+                )
+                chk_item.setCheckState(Qt.CheckState.Unchecked)
+            else:
+                chk_item.setFlags(
+                    Qt.ItemIsUserCheckable |
+                    Qt.ItemIsEnabled |
+                    Qt.ItemIsSelectable
+                )
+                chk_item.setCheckState(Qt.Unchecked)
+
+            chk_item.setText("")  # 텍스트는 비워둠
+            chk_item.setTextAlignment(QtAlignCenter)
+            t.setItem(row, 0, chk_item)
+
             items = [
-                QTableWidgetItem(str(wo.id)),           # 주문ID
-                QTableWidgetItem(symbol),               # 종목
-                QTableWidgetItem(wo.side.name),        # 매도/매수 (Side enum 기준)
+                QTableWidgetItem(str(wo.id)),          # 주문ID
+                QTableWidgetItem(symbol),              # 종목
+                QTableWidgetItem(wo.side.side),        # 매도/매수 (Side enum 기준)
                 QTableWidgetItem(f"{wo.price:,.2f}"),  # 가격
                 QTableWidgetItem(str(wo.qty)),         # 총수량
                 QTableWidgetItem(str(wo.remaining)),   # 잔량
                 QTableWidgetItem(tm_str),              # 주문시간
             ]
 
-            for col, item in enumerate(items):
-                if col in (0, 1, 2, 6):  # ID, 종목, 방향, 시간
+            for col, item in enumerate(items, start=1):
+                if col in (1, 2, 3, 7):  # ID, 종목, 방향, 시간
                     align = QtAlignCenter
                 else:                    # 가격, 수량, 잔량
                     align = QtAlignRight | QtAlignVCenter
                 item.setTextAlignment(align)
-                if col in (2, 3, 4, 5):  # 방향/가격/수량/잔량에 색 적용
+
+                if col in (3, 4, 5, 6):  # 방향/가격/수량/잔량에 색 적용
                     item.setForeground(QtGui.QBrush(color))
 
                 t.setItem(row, col, item)
 
         t.resizeColumnsToContents()
+        t.setColumnWidth(0, 24)
 
     def render_from_db(self, rows):
         """
@@ -131,6 +213,29 @@ class ReadyOrdersTable:
                 # 색상: BUY=빨강, SELL=파랑
                 color = QtGui.QColor("red") if side == "BUY" else QtGui.QColor("blue")
 
+                chk_item = QTableWidgetItem()
+                flags = chk_item.flags()
+
+                # 편집은 막고, 체크는 허용
+                if _QT6:
+                    flags &= ~Qt.ItemFlag.ItemIsEditable
+                    flags |= Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+                else:
+                    flags &= ~Qt.ItemIsEditable
+                    flags |= Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
+
+                chk_item.setFlags(flags)
+
+                if _QT6:
+                    chk_item.setCheckState(Qt.CheckState.Unchecked)
+                else:
+                    chk_item.setCheckState(Qt.Unchecked)
+
+
+                chk_item.setText("")  # 텍스트는 비워둠
+                chk_item.setTextAlignment(QtAlignCenter)
+                t.setItem(r, 0, chk_item)
+
                 items = [
                     QTableWidgetItem(str(oid)),              # 주문ID
                     QTableWidgetItem(symbol),                # 종목
@@ -141,15 +246,23 @@ class ReadyOrdersTable:
                     QTableWidgetItem(tm_str),                # 주문시간
                 ]
 
-                for col, item in enumerate(items):
-                    if col in (0, 1, 2, 6):  # ID, 종목, 방향, 시간
+                for col, item in enumerate(items, start=1):
+                    if col in (1, 2, 3, 7):  # ID, 종목, 방향, 시간
                         align = QtAlignCenter
                     else:                    # 가격, 수량, 잔량
                         align = QtAlignRight | QtAlignVCenter
                     item.setTextAlignment(align)
 
-                    if col in (2, 3, 4, 5):
+                    if col in (3, 4, 5, 6):
                         item.setForeground(QtGui.QBrush(color))
+
+                    # ✅ 편집 불가로 플래그 조정
+                    flags = item.flags()
+                    if _QT6:
+                        flags &= ~Qt.ItemFlag.ItemIsEditable
+                    else:
+                        flags &= ~Qt.ItemIsEditable
+                    item.setFlags(flags)
 
                     t.setItem(r, col, item)
 

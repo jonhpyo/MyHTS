@@ -230,7 +230,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="button_all_cancel">
+           <widget class="QPushButton" name="btn_cancel_orders">
             <property name="text">
              <string>일괄취소</string>
             </property>
@@ -574,7 +574,7 @@
     <bool>true</bool>
    </property>
    <property name="floating">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <attribute name="dockWidgetArea">
     <number>2</number>

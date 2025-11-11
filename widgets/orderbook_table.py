@@ -41,7 +41,7 @@ class OrderBookTable(_BaseTable):
       bids: 내림차순 [(price, qty, cnt), ...]
       asks: 오름차순 [(price, qty, cnt), ...]
     """
-    def __init__(self, table: QTableWidget, row_count: int, base_index: int = 9):
+    def __init__(self, table: QTableWidget, row_count: int, base_index: int):
         super().__init__(table)
         self.row_count = row_count
         self.base_index = base_index
@@ -49,12 +49,12 @@ class OrderBookTable(_BaseTable):
         self.data: List[List[float | int | None]] = []
 
         self.table.setRowCount(self.row_count)
-        self.table.setColumnCount(8)
-        self.table.setHorizontalHeaderLabels(["MIT", "매도", "건수", "잔량", "고정", "잔량", "건수", "MIT"])
+        self.table.setColumnCount(9)
+        self.table.setHorizontalHeaderLabels(["MIT", "매수", "건수", "잔량", "고정", "잔량", "건수", "매도", "MIT"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         apply_header_style(self.table, BLUE_HEADER)
 
-        widths = [70, 80, 80, 80, 90, 80, 80, 80]
+        widths = [70, 80, 80, 80, 90, 80, 80, 80, 70]
 
         for c, w in enumerate(widths):
             self.table.setColumnWidth(c, w)

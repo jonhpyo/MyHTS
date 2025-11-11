@@ -322,6 +322,38 @@ class DBService:
                     """,
                     (remaining_qty, status, order_id),
                 )
+
+    def cancel_orders(self, order_ids: list[int]) -> int:
+        """
+        주문 ID 목록을 받아서 WORKING / PARTIAL 상태인 주문을 취소 상태로 변경.
+        remaining_qty 는 0 으로 만든다.
+        반환값: 실제로 취소된 건수
+        """
+        if not order_ids:
+            return 0
+
+        with self.conn.cursor() as cur:
+            try:
+                # psycopg2 가 list 를 자동으로 배열로 변환해줘서 ANY(%s) 사용 가능
+                cur.execute(
+                    """
+                    UPDATE orders
+                    SET status = 'CANCELLED',
+                        remaining_qty = 0
+                    WHERE id = ANY(%s)
+                      AND status IN ('WORKING','PARTIAL');
+                    """,
+                    (order_ids,),
+                )
+                updated = cur.rowcount
+                self.conn.commit()
+                print(f"[DBService] cancel_orders ids={order_ids} -> {updated}행 취소")
+                return updated
+            except Exception as e:
+                self.conn.rollback()
+                print("[DBService] cancel_orders error:", e)
+                return 0
+
     def get_working_orders_by_user(self, user_id: int, limit: int = 100):
         """해당 유저의 미체결 주문 목록 반환"""
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -337,6 +369,39 @@ class DBService:
             )
             return cur.fetchall()
 
+    def get_local_orderbook(self, symbol: str):
+        """
+        로컬 거래소 기준 오더북 집계 (price별 잔량/건수)
+        반환 예:
+          {
+            "bids": { 19999.0: {"qty": 5, "cnt": 2}, ... },
+            "asks": { 20001.0: {"qty": 3, "cnt": 1}, ... },
+          }
+        """
+        from psycopg2.extras import DictCursor
+        data = {"bids": {}, "asks": {}}
+        with self.conn.cursor(cursor_factory=DictCursor) as cur:
+            # print("[DBService] get_local_orderbook symbol:", symbol)
+            cur.execute(
+                """
+                SELECT side, price,
+                       SUM(remaining_qty) AS qty,
+                       COUNT(*)           AS cnt
+                FROM orders
+                WHERE symbol = %s
+                  AND status IN ('WORKING','PARTIAL')
+                GROUP BY side, price;
+                """,
+                (symbol,),
+            )
+            for row in cur.fetchall():
+                side = row["side"].upper()
+                price = float(row["price"])
+                qty = float(row["qty"])
+                cnt = int(row["cnt"])
+                bucket = data["bids"] if side == "BUY" else data["asks"]
+                bucket[price] = {"qty": qty, "cnt": cnt}
+        return data
 
     def close(self):
         self.conn.close()
