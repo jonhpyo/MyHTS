@@ -115,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.start(150)
 
         # 초기 렌더
-        self.ready_orders.render(self.sim.working)
+        # self.ready_orders.render(self.sim.working)
         self.balance_table.render(self.account.state)
 
     # 클래스 메서드 추가
@@ -270,14 +270,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_timer(self):
         self.ctrl.poll_and_render()  # 시세/호가
 
-        if self.auth.current_user:
-            user_id = self.db.get_user_id_by_email(self.auth.current_user)
-            if user_id:
-                rows = self.db.get_working_orders_by_user(user_id, limit=100)
-                self.ready_orders.render_from_db(rows)
-        else:
+        # if self.auth.current_user:
+        #     user_id = self.db.get_user_id_by_email(self.auth.current_user)
+        #     if user_id:
+        #         rows = self.db.get_working_orders_by_user(user_id, limit=100)
+        #         self.ready_orders.render_from_db(rows)
+        # else:
             # 로그인 안 되어 있으면 빈 화면
-            self.ready_orders.render([])
+            # self.ready_orders.render([])
 
     def _require_login(self) -> bool:
         if self.auth.current_user:
@@ -487,6 +487,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.auth.login(user, pw):
                 self._apply_login_ui()
                 QtWidgets.QMessageBox.information(self, "Login", f"Welcome, {user}!")
+
+                user_id = self.db.get_user_id_by_email(self.auth.current_user)
+                rows = self.db.get_working_orders_by_user(user_id, limit=100)
+                self.ready_orders.render_from_db(rows)
+
             else:
                 QtWidgets.QMessageBox.warning(self, "Login", "계정 정보가 올바르지 않습니다.")
 
