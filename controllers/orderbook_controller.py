@@ -205,6 +205,18 @@ class OrderBookController:
         self.last_depth = snap
         self.ob_table.set_orderbook(snap.bids, snap.asks, snap.mid or 0.0)
 
+        # 🔹 1) mid 가격 기준으로 평가금액/미실현손익 갱신
+        try:
+            mid = snap.mid or 0.0
+        except Exception:
+            mid = 0.0
+
+        if mid and hasattr(self.account, "mark_to_market"):
+            self.account.mark_to_market(mid)
+
+        # 🔹 2) 잔고 요약/포지션 테이블 재렌더
+        self.balance_table.render(self.account.state)
+
     # -------------------------------------------------
     # 체결 처리 + 잔고 업데이트 + DB 기록
     # -------------------------------------------------
@@ -227,10 +239,10 @@ class OrderBookController:
 
         for f in fills:
             # ---- 1) side 를 문자열로 정규화 (Enum / str 모두 지원) ----
-            if hasattr(f.side, "name"):          # Enum (Side.BUY / Side.SELL)
-                side_str = f.side.name.upper()
+            if hasattr(f.side, "Side"):          # Enum (Side.BUY / Side.SELL)
+                side_str = f.side.side.upper()
             else:                                # 이미 str 이라면
-                side_str = str(f.side).upper()
+                side_str = str(f.side.side).upper()
 
             # ---- 2) UI 체결표에 반영 ----
             # TradesTable.add_fill(side: str, price: float, qty: int)
