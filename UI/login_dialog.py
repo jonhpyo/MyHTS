@@ -18,12 +18,17 @@ class LoginDialog(QtWidgets.QDialog):
         self.edit_pass.setEchoMode(
             QtWidgets.QLineEdit.EchoMode.Password if _QT6 else QtWidgets.QLineEdit.Password
         )
+
         self.lbl_error = QtWidgets.QLabel(self); self.lbl_error.setStyleSheet("color:#e66;")
 
         btn_login  = QtWidgets.QPushButton("Login", self)
         btn_cancel = QtWidgets.QPushButton("Cancel", self)
         btn_login.clicked.connect(self.accept)
         btn_cancel.clicked.connect(self.reject)
+
+
+        self.edit_user.setText("jjj@jjj.jjj")
+        self.edit_pass.setText("1234")
 
         form = QtWidgets.QFormLayout()
         form.addRow("ID", self.edit_user)

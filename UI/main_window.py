@@ -22,10 +22,11 @@ except Exception:
 
 # --- 프로젝트 모듈 ---
 from controllers.auth_controller import AuthController
+from controllers.auth_controller_api import AuthControllerAPI
 from controllers.orderbook_controller import OrderBookController
 from services.marketdata_service import MarketDataService
 from services.order_simulator import OrderSimulator
-from services.account_service import AccountService
+from services.simaccount import SimAccount
 
 from widgets.orderbook_table import OrderBookTable
 from widgets.stocklist_table import StockListTable
@@ -52,11 +53,12 @@ class MainWindow(QtWidgets.QMainWindow):
         depth_levels = 10
         # --- 상태/서비스 초기화 ---
         self.auth = AuthController()
+        self.authApi = AuthControllerAPI()
 
         initial_cash = float(os.getenv("INITIAL_CASH", "0"))
         # self.use_local_exchange = "True" os.getenv("USE_LOCAL_EXCHANGE", "False")
         self.use_local_exchange = "True"
-        self.account = AccountService(initial_cash=initial_cash)
+        self.account = SimAccount()
 
         self.md = MarketDataService(use_mock=use_mock, provider="BINANCE", symbol="solusdt", rows=depth_levels,)
         # if not use_mock:
@@ -116,7 +118,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # 초기 렌더
         # self.ready_orders.render(self.sim.working)
-        self.balance_table.render(self.account.state)
+        # self.balance_table.render(self.account.state)
 
     # 클래스 메서드 추가
     def _bind_symbol_selector(self):
@@ -162,7 +164,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pass
         if hasattr(self.trades, "trades"):
             self.trades.trades.clear()
-            self.trades._render()
+            self._load_trades_from_api()
 
         # 바로 한 번 폴링해서 새 심볼 호가를 강제 갱신
         try:
@@ -171,7 +173,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print("[MainWindow] poll_and_render on symbol change error:", e)
 
         self.setWindowTitle(
-            f"NASDAQ EXTENDED — {self.auth.current_user or 'Logged out'} — {sym}"
+            f"NASDAQ EXTENDED — {self.authApi.current_user or 'Logged out'} — {sym}"
         )
 
     # --------------------------
@@ -264,12 +266,32 @@ class MainWindow(QtWidgets.QMainWindow):
         # 4) 래핑
         self.balance_table = BalanceTable(table)
 
+    def _refresh_balance(self):
+        user_email = self.auth.current_user
+        if not user_email:
+            return
+        user_id = self.db.get_user_id_by_email(user_email)
+        if not user_id:
+            return
+        account_id = self.db.get_primary_account_id(user_id)
+        if not account_id:
+            return
+
+        summary = self.db.get_account_summary(account_id)
+        positions = summary["positions"]
+        balance = summary["balance"]
+
+        # 시세는 MarketDataService에서 현재가 dict로 받음
+        prices = self.md.get_latest_prices_dict() if hasattr(self.md, "get_latest_prices_dict") else {}
+
+        self.balance_table.render_positions(positions, prices)
+
     # --------------------------
     # 타이머/버튼/로그인
     # --------------------------
     def _on_timer(self):
         self.ctrl.poll_and_render()  # 시세/호가
-
+        self._refresh_balance()
         # if self.auth.current_user:
         #     user_id = self.db.get_user_id_by_email(self.auth.current_user)
         #     if user_id:
@@ -280,11 +302,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # self.ready_orders.render([])
 
     def _require_login(self) -> bool:
-        if self.auth.current_user:
+        if self.authApi.current_user:
             return True
         QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
         self._do_login()
-        return bool(self.auth.current_user)
+        return bool(self.authApi.current_user)
 
     def _on_sell_mkt(self):
         if not self._require_login():
@@ -292,7 +314,9 @@ class MainWindow(QtWidgets.QMainWindow):
         qty, ok = QtWidgets.QInputDialog.getInt(self, "시장가 매도", "수량:", 1, 1)
         if ok:
             self.ctrl.sell_market(qty)
-            self.ready_orders.render(self.sim.working)
+            # self.ready_orders.render(self.sim.working)
+            self.ready_orders.render_from_db(self.sim.working)
+            self._refresh_orders_and_trades()
 
     def _on_buy_mkt(self):
         if not self._require_login():
@@ -300,7 +324,10 @@ class MainWindow(QtWidgets.QMainWindow):
         qty, ok = QtWidgets.QInputDialog.getInt(self, "시장가 매수", "수량:", 1, 1)
         if ok:
             self.ctrl.buy_market(qty)
-            self.ready_orders.render(self.sim.working)
+            # 미체결 갱신 주기 호출 제거되어 있어야 체크박스 유지됨!
+            if hasattr(self, "ready_orders"):
+                self._refresh_orders_and_trades()
+                pass
 
     def _on_sell_lmt(self):
         if not self._require_login():
@@ -314,7 +341,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         # 로그인 사용자/계좌 찾기
-        user_email = self.auth.current_user
+        user_email = self.authApi.current_user
         user_id = self.db.get_user_id_by_email(user_email)
         account_id = self.db.get_primary_account_id(user_id)  # 이미 만든 메서드라고 가정
 
@@ -361,7 +388,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         #
         # 로그인 사용자/계좌 찾기
-        user_email = self.auth.current_user
+        user_email = self.authApi.current_user
         user_id = self.db.get_user_id_by_email(user_email)
         account_id = self.db.get_primary_account_id(user_id)  # 이미 만든 메서드라고 가정
 
@@ -429,7 +456,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _reload_working_orders(self):
-        user_email = self.auth.current_user
+        user_email = self.authApi.current_user
         if not user_email:
             return
         user_id = self.db.get_user_id_by_email(user_email)
@@ -473,8 +500,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._apply_login_ui()
 
     def _toggle_login(self):
-        if self.auth.current_user:
-            user = self.auth.logout()
+        if self.authApi.current_user:
+            user = self.authApi.logout()
             self._apply_login_ui()
             QtWidgets.QMessageBox.information(self, "Logout", f"{user} 로그아웃")
         else:
@@ -484,43 +511,77 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg = LoginDialog(self)
         if dlg.exec():
             user, pw = dlg.credentials()
-            if self.auth.login(user, pw):
+            if self.authApi.login(user, pw):
                 self._apply_login_ui()
                 QtWidgets.QMessageBox.information(self, "Login", f"Welcome, {user}!")
 
-                user_id = self.db.get_user_id_by_email(self.auth.current_user)
+                user_id = self.db.get_user_id_by_email(self.authApi.current_user)
                 rows = self.db.get_working_orders_by_user(user_id, limit=100)
-                self.ready_orders.render_from_db(rows)
+                self._load_trades_from_api()
 
             else:
                 QtWidgets.QMessageBox.warning(self, "Login", "계정 정보가 올바르지 않습니다.")
 
     def _apply_login_ui(self):
-        self.setWindowTitle(f"NASDAQ EXTENDED — {self.auth.current_user or 'Logged out'}")
-        self.act_login_logout.setText("Logout" if self.auth.current_user else "Login…")
+        self.setWindowTitle(f"NASDAQ EXTENDED — {self.authApi.current_user or 'Logged out'}")
+        self.act_login_logout.setText("Logout" if self.authApi.current_user else "Login…")
 
     def _open_account_dialog(self):
         dlg = OpenAccountDialog(self.db, self)
         dlg.exec()
 
     def _load_trades_from_db(self):
-        user_email = self.auth.current_user
-        if not user_email:
+        user_id = self.authApi.current_user
+        if not user_id:
             QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
             return
-
-        user_id = self.db.get_user_id_by_email(user_email)
         trades = self.db.get_trades_by_user(user_id, limit=100)
         self.trades.render_from_db(trades)
 
+    def _load_trades_from_api(self, api_url = "http://127.0.0.1:8000/"):
+        # 1) JWT access_token 확인
+        token = self.authApi.access_token
+        if not token:
+            QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
+            return
+
+        # 2) API 호출
+        import requests
+
+        try:
+            url = f"{api_url}/trades/my?limit=100"
+            headers = {
+                "Authorization": f"Bearer {token}"
+            }
+
+            res = requests.get(url, headers=headers, timeout=5)
+
+            if res.status_code != 200:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"/trades/my 조회 실패\nstatus={res.status_code}\n{res.text}"
+                )
+                return
+
+            rows = res.json()  # list[TradeItem]
+            # print(rows)
+
+            # 3) 기존 테이블 렌더링 함수 그대로 사용
+            self.trades.render_from_api(rows)
+
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", str(e))
+            return
+
     def _insert_dummy_trade_for_current_user(self):
         # 1) 로그인 체크
-        if not self.auth.current_user:
+        if not self.authApi.current_user:
             QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
             return
 
         # 2) user_id 찾기
-        user_email = self.auth.current_user
+        user_email = self.authApi.current_user
         user_id = self.db.get_user_id_by_email(user_email)
         if user_id is None:
             QtWidgets.QMessageBox.warning(self, "DB", "현재 로그인한 사용자를 DB에서 찾을 수 없습니다.")
@@ -538,15 +599,15 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.information(self, "Dummy Trade", "더미 체결 1건을 추가했습니다.")
 
         # 5) 그리고 DB에서 다시 읽어서 table_trades에 렌더링
-        self._load_trades_from_db()
+        self._load_trades_from_api()
 
     def _refresh_orders_and_trades(self):
-        if not self.auth.current_user:
+        if not self.authApi.current_user:
             self.ready_orders.render_from_db([])  # 미체결 비우기
             self.trades.render_from_db([])  # 체결 비우기 or 유지
             return
 
-        user_id = self.db.get_user_id_by_email(self.auth.current_user)
+        user_id = self.authApi.current_user  #Eself.db.get_user_id_by_email(self.authApi.current_user)
         # 1) 미체결
         working = self.db.get_working_orders_by_user(user_id, limit=100)
         self.ready_orders.render_from_db(working)

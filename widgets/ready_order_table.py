@@ -70,9 +70,9 @@ class ReadyOrdersTable:
         ids: list[int] = []
 
         row_count = t.rowCount()
-        print('-------------------------------')
-        print(row_count)
-        print('-------------------------------')
+        # print('-------------------------------')
+        # print(row_count)
+        # print('-------------------------------')
         for row in range(row_count):
             # chk = t.item(row, 0)  # 체크박스 아이템
             chk = t.cellWidget(row, 0)

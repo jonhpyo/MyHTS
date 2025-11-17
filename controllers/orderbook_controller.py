@@ -1,10 +1,8 @@
-from typing import Optional, List
-import datetime
-
+from typing import Optional, List, Any
 from controllers.auth_controller import AuthController
 from models.depth import DepthSnapshot
 from models.order import Fill
-from services.account_service import AccountService
+from services.simaccount import SimAccount
 from services.db_service import DBService
 from services.marketdata_service import MarketDataService
 from services.order_simulator import OrderSimulator
@@ -22,7 +20,7 @@ class OrderBookController:
         orderbook_widget: OrderBookTable,
         trades_widget: TradesTable,
         sim: OrderSimulator,
-        account: AccountService,
+        account: SimAccount,
         balance_table: BalanceTable,
         db: DBService,
         auth: AuthController,
@@ -39,6 +37,21 @@ class OrderBookController:
         self.last_depth: Optional[DepthSnapshot] = None
         self.use_local_exchange = use_local_exchange
 
+    def init_account_ui(self):
+        user_id, account_id = self._get_current_user_and_account_id()
+        if user_id is None or account_id is None:
+            return
+
+        # DB → SimAccount → BalanceTable
+        self._refresh_balance_table_from_db(account_id)
+
+        # 처음 depth 스냅샷도 있으면 적용
+        try:
+            snap = self.md.fetch_depth()
+            if snap:
+                self._apply_depth(snap)
+        except Exception:
+            pass
     # -------------------------------------------------
     # 시세 폴링 + 미체결 매칭
     # -------------------------------------------------
@@ -107,18 +120,64 @@ class OrderBookController:
     # 주문 핸들러
     # -------------------------------------------------
     def sell_market(self, qty: int):
-        if not self.last_depth:
+        # 로컬 거래소(매칭엔진) 모드에서만 동작
+        if not getattr(self, "use_local_exchange", False):
             return
-        fills, new_depth = self.sim.sell_market(qty, self.last_depth)
-        self._append_fills_and_update_balance(fills)
-        self._apply_depth(new_depth)
+
+        user_id, account_id = self._get_current_user_and_account_id()
+        if user_id is None or account_id is None:
+            return
+
+        symbol = self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
+        if not symbol:
+            return
+
+        # 1) DB에서 시장가 매도 실행 (IOC)
+        res = self.db.place_market_sell(user_id, account_id, symbol, qty, ioc=True)
+
+        # 2) 체결 리스트
+        fills = res.get("fills") or res.get("trades") or []
+
+        # 3) 체결/잔고테이블 갱신
+        self._append_fills_and_update_balance(account_id, fills)
+
+        # 4) 호가/오더북 갱신
+        try:
+            snap = self.md.fetch_depth()
+            if snap:
+                self._apply_depth(snap)
+        except Exception:
+            pass
 
     def buy_market(self, qty: int):
-        if not self.last_depth:
+        # 로컬 거래소(매칭엔진) 모드에서만 동작
+        if not getattr(self, "use_local_exchange", False):
             return
-        fills, new_depth = self.sim.buy_market(qty, self.last_depth)
-        self._append_fills_and_update_balance(fills)
-        self._apply_depth(new_depth)
+
+        user_id, account_id = self._get_current_user_and_account_id()
+        if user_id is None or account_id is None:
+            return
+
+        symbol = self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
+        if not symbol:
+            return
+
+        # 1) DB에서 시장가 매수 실행 (IOC)
+        res = self.db.place_market_buy(user_id, account_id, symbol, qty, ioc=True)
+
+        # 2) 체결 리스트 (키 이름이 trades 또는 fills일 수 있음)
+        fills = res.get("fills") or res.get("trades") or []
+
+        # 3) 체결/잔고테이블 갱신
+        self._append_fills_and_update_balance(account_id, fills)
+
+        # 4) 호가/오더북 갱신
+        try:
+            snap = self.md.fetch_depth()
+            if snap:
+                self._apply_depth(snap)
+        except Exception:
+            pass
 
     def sell_limit(self, price: float, qty: int) -> int:
         if not self.last_depth:
@@ -201,75 +260,182 @@ class OrderBookController:
     # -------------------------------------------------
     # 호가 적용
     # -------------------------------------------------
-    def _apply_depth(self, snap: DepthSnapshot):
+    def _apply_depth(self, snap: "DepthSnapshot"):
+        """
+        DepthSnapshot:
+            snap.bids, snap.asks, snap.mid
+        """
         self.last_depth = snap
-        self.ob_table.set_orderbook(snap.bids, snap.asks, snap.mid or 0.0)
 
-        # 🔹 1) mid 가격 기준으로 평가금액/미실현손익 갱신
-        try:
-            mid = snap.mid or 0.0
-        except Exception:
-            mid = 0.0
+        mid = snap.mid or 0.0
 
-        if mid and hasattr(self.account, "mark_to_market"):
-            self.account.mark_to_market(mid)
+        # 1) 오더북 UI 갱신
+        self.ob_table.set_orderbook(snap.bids, snap.asks, mid)
 
-        # 🔹 2) 잔고 요약/포지션 테이블 재렌더
-        self.balance_table.render(self.account.state)
+        # 2) 현재 심볼에 대해서만 마크투마켓
+        symbol = self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
+
+        prices_for_mtm: dict[str, float] = {}
+        if symbol:
+            prices_for_mtm[symbol] = mid
+
+        if prices_for_mtm and hasattr(self.account, "mark_to_market"):
+            self.account.mark_to_market(prices_for_mtm)
+
+        # 3) 테이블 갱신용 가격 dict 전체 만들기
+        state = self.account.state
+        positions = state.get("positions", [])
+
+        prices_for_table: dict[str, float] = {}
+        for p in positions:
+            sym = p["symbol"]
+            if sym == symbol:
+                prices_for_table[sym] = mid or p.get("last_price", p.get("avg_price", 0.0))
+            else:
+                prices_for_table[sym] = p.get("last_price", p.get("avg_price", 0.0))
+
+        # 4) 테이블 렌더
+        self.balance_table.render_positions(positions, prices_for_table)
+
+    def _load_account_from_summary(self, summary: dict):
+        """
+        DB의 get_account_summary(account_id) 결과를 SimAccount에 로드
+        summary: {"balance": float, "positions": [DictRow, ...]}
+        """
+        # 현금
+        self.account.cash = float(summary.get("balance", 0.0))
+
+        # 포지션 초기화
+        self.account.positions.clear()
+
+        for row in summary.get("positions", []):
+            symbol = row["symbol"]
+            qty = float(row["qty"])
+            avg_price = float(row["avg_price"])
+
+            pos = self.account._get_or_create_position(symbol)
+            pos.position = qty
+            pos.avg_price = avg_price
+            # last_price / pnl은 나중에 mark_to_market에서 계산
+
+    def _refresh_balance_table_from_db(self, account_id: int):
+        """
+        DB에서 계좌 요약을 가져와서 SimAccount에 로드하고,
+        마크투마켓 후 BalanceTable을 갱신한다.
+        """
+        # 1) DB에서 요약 읽기
+        summary = self.db.get_account_summary(account_id)
+        self._load_account_from_summary(summary)
+
+        # 2) SimAccount.state 가져오기
+        state = self.account.state
+        positions = state.get("positions", [])
+
+        # 3) 심볼별 현재가 dict 만들기
+        prices: dict[str, float] = {}
+        for p in positions:
+            sym = p["symbol"]
+
+            cur = None
+            # md에 심볼별 현재가 함수가 있으면 사용
+            if hasattr(self.md, "get_last_price"):
+                try:
+                    cur = self.md.get_last_price(sym)
+                except Exception:
+                    cur = None
+
+            if cur is None:
+                # 일단 last_price → 없으면 avg_price fallback
+                cur = p.get("last_price", p.get("avg_price", 0.0))
+
+            prices[sym] = float(cur)
+
+        # 4) 계좌 마크투마켓
+        if hasattr(self.account, "mark_to_market"):
+            self.account.mark_to_market(prices)
+
+        # 5) MTM 반영된 최신 state로 다시 positions 가져오기
+        state = self.account.state
+        positions = state.get("positions", [])
+
+        # 6) 테이블 렌더
+        self.balance_table.render_positions(positions, prices)
 
     # -------------------------------------------------
     # 체결 처리 + 잔고 업데이트 + DB 기록
     # -------------------------------------------------
-    def _append_fills_and_update_balance(self, fills: List[Fill]):
-        """체결 리스트를 UI/시뮬 계좌/DB(잔고)에 반영"""
+
+    def _append_fills_and_update_balance(self, account_id: int, fills: List[Any]):
+        """
+        체결 리스트를 UI에 반영하고,
+        SimAccount/DB 잔고/포지션을 갱신한 뒤,
+        마지막에 DB 기준으로 다시 읽어서 테이블을 리프레시한다.
+        """
         if not fills:
             return
 
-        # 로그인 유저 / 계좌 정보 (잔고 업데이트용)
-        user_email = getattr(self.auth, "current_user", None)
-        user_id = None
-        account_id = None
-        if user_email:
-            user_id = self.db.get_user_id_by_email(user_email)
-            if user_id is not None:
-                account_id = self.db.get_primary_account_id(user_id)
-
-        delta_cash = 0.0
-        symbol = self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
+        delta_cash = 0.0  # 이번 체결들로 인한 총 현금 변화량
 
         for f in fills:
-            # ---- 1) side 를 문자열로 정규화 (Enum / str 모두 지원) ----
-            if hasattr(f.side, "Side"):          # Enum (Side.BUY / Side.SELL)
-                side_str = f.side.side.upper()
-            else:                                # 이미 str 이라면
-                side_str = str(f.side.side).upper()
+            # ---- side, price, qty, symbol 안전하게 꺼내기 ----
+            if isinstance(f, dict):
+                side_raw = f.get("side")
+                price = float(f.get("price", 0.0))
+                qty = float(f.get("qty", 0.0))
+                symbol = f.get("symbol") or (
+                    self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
+                )
+            else:
+                side_obj = getattr(f, "side", None)
+                side_raw = getattr(side_obj, "side", side_obj)
+                price = float(getattr(f, "price", 0.0))
+                qty = float(getattr(f, "qty", 0.0))
+                symbol = getattr(f, "symbol", None) or (
+                    self.md.current_symbol() if hasattr(self.md, "current_symbol") else ""
+                )
 
-            # ---- 2) UI 체결표에 반영 ----
-            # TradesTable.add_fill(side: str, price: float, qty: int)
-            self.trades.add_fill(side_str, float(f.price), int(f.qty))
+            if not symbol:
+                continue
 
-            # ---- 3) 시뮬레이션 계좌 현금 변화 ----
-            notional = float(f.price) * float(f.qty)
+            side_str = str(side_raw).upper()
+            notional = price * qty
+
+            # ---- 1) 체결표 UI ----
+            self.trades.add_fill(side_str, price, int(qty))
+
+            # ---- 2) SimAccount 포지션 반영 ----
+            self.account.apply_fill(symbol, side_str, price, qty)
+
+            # ---- 3) 현금 변화량 계산 ----
             if side_str == "SELL":
-                delta_cash += notional
+                delta_cash += notional  # 매도 → 돈 들어옴
             else:  # BUY
-                delta_cash -= notional
+                delta_cash -= notional  # 매수 → 돈 나감
 
-            # ⚠️ 지금은 trades 테이블 구조가 buy_order_id/sell_order_id 기반이라
-            # 여기에서 직접 trades 에 INSERT 하지는 않는다.
-            # 실제 로컬 거래소 모드에서는 매칭 엔진이 orders → trades 를 기록하고,
-            # 클라이언트는 그걸 읽어서 화면에 그리는 쪽이 자연스럽다.
-
-        # ---- 4) 시뮬레이션 계좌 + 잔고 테이블 갱신 ----
+        # ---- 4) SimAccount 현금 반영 ----
         if delta_cash != 0.0:
-            # 메모리 상 계좌
             self.account.apply_cash(delta_cash)
-            self.balance_table.render(self.account.state)
 
-            # DB accounts 잔고도 테스트/로그용으로 반영
-            if account_id is not None:
-                self.db.update_balance(account_id, delta_cash)
+        # ---- 5) DB accounts.balance 반영 ----
+        if hasattr(self.db, "update_balance"):
+            # ❗ update_balance가 "절대값"을 받는 함수라면 이렇게:
+            self.db.update_balance(account_id, self.account.cash)
 
+            # 만약 네 DBService가 "delta"를 받는다면 위 한 줄 대신:
+            # self.db.update_balance(account_id, delta_cash)
+
+        # ---- 6) DB positions 테이블 upsert ----
+        if hasattr(self.db, "upsert_position"):
+            for sym, pos in self.account.positions.items():
+                self.db.upsert_position(
+                    account_id=account_id,
+                    symbol=sym,
+                    qty=pos.position,
+                    avg_price=pos.avg_price,
+                )
+
+        # ---- 7) 마지막으로, DB 기준으로 다시 읽어서 테이블 리프레시 ----
+        self._refresh_balance_table_from_db(account_id)
 
     def _record_working_order_to_db(self, side: str, price: float, qty: float, remaining: float):
         """미체결 주문을 orders 테이블에 기록"""
@@ -311,3 +477,23 @@ class OrderBookController:
                 setattr(last_working, "db_order_id", order_id)
             except Exception as e:
                 print("[OrderBookController] attach db_order_id to working err:", e)
+
+
+    def _get_current_user_and_account_id(self):
+        """
+        편의용: 현재 로그인 유저/계좌 id 반환
+        """
+        user_email = getattr(self.auth, "current_user", None)
+        if not user_email:
+            return None, None
+
+        user_id = self.db.get_user_id_by_email(user_email)
+        if user_id is None:
+            return None, None
+
+        account_id = self.db.get_primary_account_id(user_id)
+        if account_id is None:
+            return None, None
+
+        return user_id, account_id
+

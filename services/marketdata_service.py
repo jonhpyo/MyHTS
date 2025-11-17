@@ -55,7 +55,7 @@ class MarketDataService:
             return
 
         self.symbol = new_sym
-        print("[MarketDataService] set_symbol ->", self.symbol)
+        # print("[MarketDataService] set_symbol ->", self.symbol)
 
         # # 🔹 이전 오라클 정리
         # if self._oracle:
@@ -184,6 +184,39 @@ class MarketDataService:
             return self._gen_mock_depth()
 
         return None
+
+    # ---- 유틸: 심볼별 현재가 dict ----
+    def get_latest_prices_dict(self) -> dict[str, float]:
+        """
+        포지션 평가용으로 쓰는 간단한 현재가 딕셔너리.
+        - key: SYMBOL (대문자)
+        - value: mid price (또는 best bid/ask 평균)
+        """
+        prices: dict[str, float] = {}
+
+        snap = self._last_snapshot
+        if not snap:
+            return prices
+
+        # 심볼: 스냅샷이 들고 있으면 그걸, 없으면 current_symbol()
+        sym = getattr(snap, "symbol", None)
+        if not sym and hasattr(self, "current_symbol"):
+            sym = self.current_symbol()
+        if not sym:
+            return prices
+
+        # mid가 없으면 bids/asks 로 계산
+        mid = getattr(snap, "mid", None)
+        if mid is None:
+            try:
+                mid = DepthSnapshot.calc_mid(snap.bids, snap.asks)
+            except Exception:
+                mid = None
+
+        if mid is not None:
+            prices[str(sym).upper()] = float(mid)
+
+        return prices
 
     # ---------- 종료 ----------
     def close(self):

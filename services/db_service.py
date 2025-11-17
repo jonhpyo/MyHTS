@@ -6,6 +6,9 @@ import hashlib
 import random
 from decimal import Decimal
 
+from services.simaccount import SimAccount
+
+
 class DBService:
     def __init__(self,
                  host="localhost",
@@ -90,6 +93,70 @@ class DBService:
             )
             row = cur.fetchone()
             return row[0] if row else None
+
+    import psycopg2.extras
+
+    def get_account_summary(self, account_id: int):
+        """잔고 + 포지션 목록 반환"""
+        summary = {"balance": 0.0, "positions": []}
+
+        with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # 현금 잔고
+            cur.execute("SELECT balance FROM accounts WHERE id=%s;", (account_id,))
+            row = cur.fetchone()
+            summary["balance"] = float(row["balance"]) if row else 0.0
+
+            # 보유 포지션
+            cur.execute(
+                """
+                SELECT symbol, qty, avg_price, updated_at
+                FROM positions
+                WHERE account_id=%s
+                ORDER BY symbol;
+                """,
+                (account_id,),
+            )
+            rows = cur.fetchall()
+
+            positions: list[dict] = []
+            for r in rows:
+                positions.append(
+                    {
+                        "symbol": str(r["symbol"]),
+                        "qty": float(r["qty"]),
+                        "avg_price": float(r["avg_price"]),
+                        "updated_at": r["updated_at"],
+                    }
+                )
+
+            summary["positions"] = positions
+
+        return summary
+
+    def load_account_from_db(self, account_id: int):
+        """
+        DB 계좌 요약을 SimAccount에 로드하여 UI에 반영 가능한 형태로 만든다.
+        """
+        summary = self.get_account_summary(account_id)
+
+        # SimAccount 초기화
+        self.account = SimAccount
+        self.account.cash = summary.get("balance", 0.0)
+
+        # DB positions → SimAccount.positions
+        for row in summary.get("positions", []):
+            symbol = row["symbol"]
+            qty = float(row["qty"])
+            avg_price = float(row["avg_price"])
+
+            pos = self.account._get_or_create_position(symbol)
+            pos.position = qty
+            pos.avg_price = avg_price
+
+        # 마지막 가격 정보는 DB가 모르므로,
+        # 마크투마켓은 md 핸들러에서 mid/fetchprice로 갱신하면 됨.
+
+        return self.account
 
     def get_primary_account_id(self, user_id: int) -> int | None:
         """해당 유저의 기본 계좌 하나(id)만 가져오기 (가장 먼저 생성된 계좌 기준)"""
@@ -402,6 +469,393 @@ class DBService:
                 bucket = data["bids"] if side == "BUY" else data["asks"]
                 bucket[price] = {"qty": qty, "cnt": cnt}
         return data
+
+    def place_market_buy(self, user_id: int, account_id: int, symbol: str, qty: float, ioc: bool = True):
+        """
+        시장가 매수:
+          - 주문 레코드(type='MKT') 생성
+          - 최저가 SELL부터 체결
+          - 잔액/주문 잔량/상태/체결 테이블 모두 갱신
+          - ioc=True 이면 남은 수량은 즉시 취소(CANCELLED), False면 잔량 WORKING 으로 남김
+
+        반환:
+          {
+            "order_id": int,
+            "filled_qty": float,
+            "avg_price": float | None,
+            "spent": float,               # 총 체결대금
+            "leftover": float,            # 남은 수량(IOC면 0으로 처분됨)
+            "trades": [ { "price":p, "qty":q, "sell_order_id":sid }, ... ]
+          }
+        """
+        conn = self.conn
+        result = {
+            "order_id": None,
+            "filled_qty": 0.0,
+            "avg_price": None,
+            "spent": 0.0,
+            "leftover": float(qty),
+            "trades": [],
+        }
+
+        if qty <= 0:
+            return result
+
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                # 1) 시장가 주문 INSERT (price는 NULL/0, type='MKT')
+                cur.execute(
+                    """
+                    INSERT INTO orders (user_id, account_id, symbol, side, price, quantity, remaining_qty, status, created_at)
+                    VALUES (%s, %s, %s, 'BUY', NULL, %s, %s, 'WORKING', now())
+                    RETURNING id;
+                    """,
+                    (user_id, account_id, symbol, qty, qty),
+                )
+                buy_order_id = cur.fetchone()["id"]
+                result["order_id"] = buy_order_id
+
+                remaining = float(qty)
+                total_notional = 0.0
+                total_filled = 0.0
+
+                # 2) 체결 대상 SELL 주문 락 잡고 조회 (최저가 우선, 오래된 순)
+                cur.execute(
+                    """
+                    SELECT id, account_id, price, remaining_qty
+                    FROM orders
+                    WHERE symbol = %s
+                      AND side = 'SELL'
+                      AND status IN ('WORKING','PARTIAL')
+                    ORDER BY price ASC, created_at ASC
+                    FOR UPDATE SKIP LOCKED;
+                    """,
+                    (symbol,),
+                )
+                sell_rows = cur.fetchall()
+
+                trades = []
+
+                # 3) 매칭 루프
+                for s in sell_rows:
+                    if remaining <= 0:
+                        break
+                    sell_id = s["id"]
+                    sell_acc = s["account_id"]
+                    sell_px = float(s["price"])
+                    sell_rem = float(s["remaining_qty"])
+
+                    if sell_rem <= 0:
+                        continue
+
+                    fill_qty = min(remaining, sell_rem)
+                    notional = sell_px * fill_qty
+
+                    # 체결 기록
+                    cur.execute(
+                        """
+                        INSERT INTO trades (buy_order_id, sell_order_id, symbol, price, quantity, trade_time)
+                        VALUES (%s, %s, %s, %s, %s, now());
+                        """,
+                        (buy_order_id, sell_id, symbol, sell_px, fill_qty),
+                    )
+
+                    # 판매자 주문 잔량/상태
+                    new_sell_rem = sell_rem - fill_qty
+                    new_sell_status = "FILLED" if new_sell_rem <= 0 else "PARTIAL"
+                    cur.execute(
+                        """
+                        UPDATE orders
+                        SET remaining_qty = %s, status = %s
+                        WHERE id = %s;
+                        """,
+                        (new_sell_rem, new_sell_status, sell_id),
+                    )
+
+                    # 계좌 잔액 갱신: BUY(-), SELL(+)
+                    cur.execute(
+                        "UPDATE accounts SET balance = balance - %s WHERE id = %s;",
+                        (notional, account_id),
+                    )
+                    cur.execute(
+                        "UPDATE accounts SET balance = balance + %s WHERE id = %s;",
+                        (notional, sell_acc),
+                    )
+
+                    trades.append({"price": sell_px, "qty": fill_qty, "sell_order_id": sell_id})
+                    remaining -= fill_qty
+                    total_filled += fill_qty
+                    total_notional += notional
+
+                # 4) 시장가 주문 상태/잔량 정리
+                if total_filled > 0:
+                    avg_price = total_notional / total_filled
+                else:
+                    avg_price = None
+
+                if remaining <= 0:
+                    # 전량 체결
+                    cur.execute(
+                        "UPDATE orders SET remaining_qty=0, status='FILLED' WHERE id=%s;",
+                        (buy_order_id,),
+                    )
+                else:
+                    if ioc:
+                        # 체결 안 된 잔량 즉시 취소 (IOC)
+                        cur.execute(
+                            "UPDATE orders SET remaining_qty=0, status='CANCELLED' WHERE id=%s;",
+                            (buy_order_id,),
+                        )
+                    else:
+                        # 잔량을 살아있는 'MKT'로 두고 싶다면 여기서 'WORKING' 유지
+                        cur.execute(
+                            "UPDATE orders SET remaining_qty=%s, status='PARTIAL' WHERE id=%s;",
+                            (remaining, buy_order_id),
+                        )
+
+                result.update({
+                    "filled_qty": total_filled,
+                    "avg_price": avg_price,
+                    "spent": total_notional,
+                    "leftover": remaining if not ioc else 0.0,
+                    "trades": trades,
+                })
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print("[DBService] place_market_buy error:", e)
+
+        return result
+
+    # services/db_service.py
+    import psycopg2
+    import psycopg2.extras
+
+    def place_market_sell(self, user_id: int, account_id: int, symbol: str, qty: float, ioc: bool = True):
+        """
+        시장가 매도:
+          - SELL 시장가 주문(type='MKT') 생성
+          - 최고가 BUY부터 체결
+          - trades/주문잔량/주문상태/계좌잔액 모두 한 트랜잭션으로 처리
+          - ioc=True면 남은 수량은 즉시 취소
+
+        반환 예:
+          {
+            "order_id": int,
+            "filled_qty": float,
+            "avg_price": float|None,
+            "received": float,      # 총 체결대금(매도자 수령액)
+            "leftover": float,      # 남은 수량(IOC면 0)
+            "trades": [ { "price":p, "qty":q, "buy_order_id": bid }, ... ]
+          }
+        """
+        conn = self.conn
+        result = {
+            "order_id": None,
+            "filled_qty": 0.0,
+            "avg_price": None,
+            "received": 0.0,
+            "leftover": float(qty),
+            "trades": [],
+        }
+        if qty <= 0:
+            return result
+
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                # 1) SELL 시장가 주문 생성
+                cur.execute(
+                    """
+                    INSERT INTO orders (user_id, account_id, symbol, side, price, quantity, remaining_qty, status, created_at)
+                    VALUES (%s, %s, %s, 'SELL', NULL, %s, %s, 'WORKING', now())
+                    RETURNING id;
+                    """,
+                    (user_id, account_id, symbol, qty, qty),
+                )
+                sell_order_id = cur.fetchone()["id"]
+                result["order_id"] = sell_order_id
+
+                remaining = float(qty)
+                total_notional = 0.0
+                total_filled = 0.0
+
+                # 2) 체결 대상: BUY 주문 (최고가 우선, 오래된 순)
+                cur.execute(
+                    """
+                    SELECT id, account_id, price, remaining_qty
+                    FROM orders
+                    WHERE symbol = %s
+                      AND side = 'BUY'
+                      AND status IN ('WORKING','PARTIAL')
+                    ORDER BY price DESC, created_at ASC
+                    FOR UPDATE SKIP LOCKED;
+                    """,
+                    (symbol,),
+                )
+                buy_rows = cur.fetchall()
+
+                trades = []
+
+                # 3) 매칭 루프
+                for b in buy_rows:
+                    if remaining <= 0:
+                        break
+                    buy_id = b["id"]
+                    buy_acc = b["account_id"]
+                    buy_px = float(b["price"])
+                    buy_rem = float(b["remaining_qty"])
+                    if buy_rem <= 0:
+                        continue
+
+                    fill_qty = min(remaining, buy_rem)
+                    notional = buy_px * fill_qty
+
+                    # 체결 기록
+                    cur.execute(
+                        """
+                        INSERT INTO trades (buy_order_id, sell_order_id, symbol, price, quantity, trade_time)
+                        VALUES (%s, %s, %s, %s, %s, now());
+                        """,
+                        (buy_id, sell_order_id, symbol, buy_px, fill_qty),
+                    )
+
+                    # BUY 주문 잔량/상태
+                    new_buy_rem = buy_rem - fill_qty
+                    new_buy_status = "FILLED" if new_buy_rem <= 0 else "PARTIAL"
+                    cur.execute(
+                        "UPDATE orders SET remaining_qty=%s, status=%s WHERE id=%s;",
+                        (new_buy_rem, new_buy_status, buy_id),
+                    )
+
+                    # 계좌 잔액: BUY(-), SELL(+)
+                    cur.execute("UPDATE accounts SET balance = balance - %s WHERE id = %s;", (notional, buy_acc))
+                    cur.execute("UPDATE accounts SET balance = balance + %s WHERE id = %s;", (notional, account_id))
+
+                    trades.append({"price": buy_px, "qty": fill_qty, "buy_order_id": buy_id})
+                    remaining -= fill_qty
+                    total_filled += fill_qty
+                    total_notional += notional
+
+                # 4) SELL 시장가 주문 상태 정리
+                avg_price = (total_notional / total_filled) if total_filled > 0 else None
+                if remaining <= 0:
+                    cur.execute("UPDATE orders SET remaining_qty=0, status='FILLED' WHERE id=%s;", (sell_order_id,))
+                else:
+                    if ioc:
+                        cur.execute("UPDATE orders SET remaining_qty=0, status='CANCELLED' WHERE id=%s;",
+                                    (sell_order_id,))
+                    else:
+                        cur.execute("UPDATE orders SET remaining_qty=%s, status='PARTIAL' WHERE id=%s;",
+                                    (remaining, sell_order_id))
+
+                result.update({
+                    "filled_qty": total_filled,
+                    "avg_price": avg_price,
+                    "received": total_notional,
+                    "leftover": remaining if not ioc else 0.0,
+                    "trades": trades,
+                })
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print("[DBService] place_market_sell error:", e)
+
+        return result
+
+    def update_position_on_trade(self, account_id: int, user_id: int, symbol: str, side: str, price: float, qty: float):
+        """
+        체결이 발생할 때 포지션을 갱신.
+        side: 'BUY' → 보유수량 +, 평균단가 재계산
+              'SELL' → 보유수량 -, 실현손익 계산 가능
+        """
+        conn = self.conn
+        side = side.upper()
+        try:
+            with conn.cursor() as cur:
+                # 기존 포지션 조회
+                cur.execute(
+                    "SELECT qty, avg_price FROM positions WHERE account_id=%s AND symbol=%s;",
+                    (account_id, symbol),
+                )
+                row = cur.fetchone()
+
+                if row:
+                    old_qty, old_avg = float(row[0]), float(row[1])
+                else:
+                    old_qty, old_avg = 0.0, 0.0
+
+                new_qty = old_qty
+                new_avg = old_avg
+
+                if side == "BUY":
+                    total_cost = old_qty * old_avg + qty * price
+                    new_qty = old_qty + qty
+                    new_avg = total_cost / new_qty if new_qty > 0 else 0.0
+                elif side == "SELL":
+                    new_qty = old_qty - qty
+                    if new_qty < 0:
+                        new_qty = 0.0  # (공매도 지원하려면 이 조건 제거)
+                    # 평균단가는 매도 시 유지
+
+                if row:
+                    if new_qty > 0:
+                        cur.execute(
+                            "UPDATE positions SET qty=%s, avg_price=%s, updated_at=now() WHERE account_id=%s AND symbol=%s;",
+                            (new_qty, new_avg, account_id, symbol),
+                        )
+                    else:
+                        cur.execute(
+                            "DELETE FROM positions WHERE account_id=%s AND symbol=%s;",
+                            (account_id, symbol),
+                        )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO positions (user_id, account_id, symbol, qty, avg_price)
+                        VALUES (%s, %s, %s, %s, %s);
+                        """,
+                        (user_id, account_id, symbol, qty, price),
+                    )
+
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print("[DBService] update_position_on_trade error:", e)
+
+    def get_positions_by_account(self, account_id: int):
+        """해당 계좌의 보유 포지션 목록 반환"""
+        with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute(
+                """
+                SELECT symbol, qty, avg_price, updated_at
+                FROM positions
+                WHERE account_id=%s
+                ORDER BY symbol;
+                """,
+                (account_id,),
+            )
+            return cur.fetchall()
+
+    def upsert_position(self, account_id: int, symbol: str, qty: float, avg_price: float):
+        """
+        positions 테이블에 (account_id, symbol)에 해당하는 포지션을
+        qty / avg_price 기준으로 덮어쓴다.
+        (SimAccount가 계산한 값을 그대로 저장하는 방식)
+        """
+        sql = """
+        INSERT INTO positions (account_id, symbol, qty, avg_price, updated_at)
+        VALUES (%s, %s, %s, %s, NOW())
+        ON CONFLICT (account_id, symbol)
+        DO UPDATE SET
+            qty = EXCLUDED.qty,
+            avg_price = EXCLUDED.avg_price,
+            updated_at = NOW();
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, (account_id, symbol, qty, avg_price))
+        self.conn.commit()
 
     def close(self):
         self.conn.close()
