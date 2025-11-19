@@ -1,11 +1,8 @@
 # widgets/balance_table.py
-try:
-    from PyQt6 import QtWidgets, QtGui
-    from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
-except Exception:
-    from PyQt5 import QtWidgets, QtGui
-    from PyQt5.QtCore import Qt
+from PyQt6 import QtWidgets, QtGui
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
+
 
 from widgets.ui_styles import BLUE_HEADER, apply_header_style, QtAlignCenter, QtAlignRight, QtAlignVCenter
 
@@ -34,7 +31,56 @@ class BalanceTable:
         # 현금/총평가금액 표시
     def render_summary(self, balance: float, total_pl: float):
         """상단 제목줄을 갱신하거나 별도 QLabel에 표시"""
-        print(f"[BalanceTable] 💰현금: {balance:,.0f} / 평가손익합계: {total_pl:+,.0f}")
+        # print(f"[BalanceTable] 💰현금: {balance:,.0f} / 평가손익합계: {total_pl:+,.0f}")
+        print('--balance--line:34')
+
+    def render_from_summary(self, summary: dict, md_service):
+        """
+        summary:
+            {
+                "balance": float,
+                "positions": [
+                    {"symbol": "AAPL", "qty": 1.0, "avg_price": 100.0},
+                    ...
+                ]
+            }
+
+        md_service:
+            MarketDataService — get_last_price(symbol) 지원해야 함
+        """
+
+        positions = summary.get("positions", [])
+        cash = float(summary.get("balance", 0.0))
+
+        # 1) 심볼별 현재가 수집
+        prices = {}
+
+        for p in positions:
+            sym = p["symbol"]
+
+            last_price = None
+            if hasattr(md_service, "get_last_price"):
+                try:
+                    last_price = md_service.get_last_price(sym)
+                except:
+                    last_price = None
+
+            if last_price is None:
+                last_price = p.get("avg_price", 0.0)
+
+            prices[sym] = float(last_price)
+
+        # 2) 포지션 테이블 렌더링
+        self.render_positions(positions, prices)
+
+        # 3) 현금 + 총손익 출력
+        total_eval = sum(p["qty"] * prices.get(p["symbol"], p["avg_price"]) for p in positions)
+        total_pl = sum(
+            (prices.get(p["symbol"], p["avg_price"]) - p["avg_price"]) * p["qty"]
+            for p in positions
+        )
+
+        self.render_summary(cash, total_pl)
 
     def render_positions(self, positions, prices: dict[str, float]):
         """

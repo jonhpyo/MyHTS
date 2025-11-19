@@ -125,7 +125,7 @@ class SimAccount:
         self.total_unrealized = total_unrealized
 
     # ============================================================
-    # UI/DB용 구조 변환
+    # ui/DB용 구조 변환
     # ============================================================
     @property
     def state(self) -> Dict[str, Any]:

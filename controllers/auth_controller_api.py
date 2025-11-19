@@ -1,5 +1,7 @@
 # controllers/auth_controller.py
 import hashlib
+
+from typing import Optional, Dict, Any
 import requests
 from services.db_service import DBService
 
@@ -7,11 +9,11 @@ from services.db_service import DBService
 class AuthControllerAPI:
     """로그인 / 로그아웃 / 현재 사용자 상태 관리"""
 
-    def __init__(self, api_url = "http://127.0.0.1:8000/"):
+    def __init__(self, api_url = "http://127.0.0.1:9000/"):
         self.api_url = api_url
         self.access_token: str | None = None
-        self.user_id: int | None = None
-        self.current_user: str | None = None
+        # self.user_id: int | None = None
+        self.current_user: Optional[Dict[str, Any]] = None
 
 
     def login(self, email: str, pw: str) -> bool:
@@ -51,9 +53,8 @@ class AuthControllerAPI:
             print("[Auth] /me 조회 실패")
             return False
 
-        self.user_id = me.get("user_id")
-        self.current_user = email
-        print("[Auth] 로그인 성공 → email =", self.current_user, self.user_id)
+        self.current_user = me
+        print("[Auth] 로그인 성공 → email =", self.current_user.get("email"), self.current_user.get("user_id"))
         return True
 
     # --------------------------
@@ -96,7 +97,7 @@ class AuthControllerAPI:
 
     def logout(self) -> str | None:
         """로그아웃"""
-        user = self.current_user
+        user = self.current_user.get("email")
         self.current_user = None
         print(f"[Auth] 로그아웃: {user}")
         return user

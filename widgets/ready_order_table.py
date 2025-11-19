@@ -1,159 +1,47 @@
-
-# widgets/ready_order_table.py
-try:
-    from PyQt6 import QtWidgets, QtGui, QtCore
-    from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
-
-    _QT6 = True
-except Exception:
-    from PyQt5 import QtWidgets, QtGui, QtCore
-    from PyQt5.QtCore import Qt
-    from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
-    _QT6 = False
-
-from .ui_styles import QtAlignCenter, QtAlignRight, QtAlignVCenter
-from .ui_styles import BLUE_HEADER, DARK_HEADER, apply_header_style
-
-from models.working_order import WorkingOrder
-from models.order import Side
+# widgets/ready_order_table.py (V2 API 기반 리팩토링)
+from PyQt6 import QtWidgets
+from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
+from PyQt6.QtCore import Qt
+from widgets.ui_styles import BLUE_HEADER, apply_header_style, QtAlignCenter, QtAlignRight, QtAlignVCenter
 
 
 class ReadyOrdersTable:
-    """미체결 주문(WorkingOrder) 리스트를 표시하는 테이블"""
+    """
+    미체결 주문 테이블 (API 기반 V2)
+    - 체크박스 포함
+    - get_checked_order_ids() 제공
+    - DB/REST API에서 받아온 row 포맷을 자동 처리
+    """
+
+    HEADERS = ["", "주문ID", "종목", "매수/매도", "가격", "주문수량", "잔량", "시간"]
 
     def __init__(self, table: QTableWidget):
         self.table = table
         self._init_ui()
 
+    # --------------------------------------------------------
+    # UI 초기화
+    # --------------------------------------------------------
     def _init_ui(self):
         t = self.table
-        headers = ["선택", "주문ID", "종목", "매도/매수", "가격", "총수량", "잔량", "주문시간"]
-        t.setColumnCount(len(headers))
-        t.setHorizontalHeaderLabels(headers)
-        apply_header_style(t, BLUE_HEADER)
+        t.setColumnCount(len(self.HEADERS))
+        t.setHorizontalHeaderLabels(self.HEADERS)
         t.verticalHeader().setVisible(False)
 
-        if _QT6:
-            t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.AllEditTriggers)
-            t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-            t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
-        else:
-            t.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
-            t.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-            t.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        # 스타일
+        apply_header_style(t, BLUE_HEADER)
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
 
-
-    def get_selected_order_ids(self) -> list[int]:
-        """테이블에서 선택된 행들의 주문ID 리스트 반환"""
-        t = self.table
-        ids: set[int] = set()
-
-        sel_model = t.selectionModel()
-        if not sel_model:
-            return []
-
-        for index in sel_model.selectedRows():  # 행 단위 선택
-            row = index.row()
-            item = t.item(row, 0)  # 0번 컬럼 = 주문ID
-            if item:
-                try:
-                    ids.add(int(item.text()))
-                except ValueError:
-                    pass
-
-        return sorted(ids)
-
-    def get_checked_order_ids(self) -> list[int]:
-        """맨 앞 체크박스가 체크된 행들의 주문ID 리스트 반환"""
-        t = self.table
-        ids: list[int] = []
-
-        row_count = t.rowCount()
-        # print('-------------------------------')
-        # print(row_count)
-        # print('-------------------------------')
-        for row in range(row_count):
-            # chk = t.item(row, 0)  # 체크박스 아이템
-            chk = t.cellWidget(row, 0)
-            if not isinstance(chk, QtWidgets.QCheckBox):
-                continue
-            if not chk.isChecked():
-                continue
-
-            id_item = t.item(row, 1)  # 1번 컬럼 = 주문ID
-            if not id_item:
-                continue
-            try:
-                ids.append(int(id_item.text()))
-            except ValueError:
-                pass
-
-        return ids
-
-    # def render(self, working_orders: list[WorkingOrder]):
-    #     """미체결 주문 리스트를 테이블에 표시"""
-    #     t = self.table
-    #     t.clearContents()
-    #
-    #     if not working_orders:
-    #         t.setRowCount(0)
-    #         return
-    #
-    #     t.setRowCount(len(working_orders))
-    #
-    #     for row, wo in enumerate(working_orders):
-    #         # 색상: BUY=빨강, SELL=파랑
-    #         is_buy = (wo.side == Side.BUY or str(wo.side).upper() == "BUY")
-    #         color = QtGui.QColor("red") if is_buy else QtGui.QColor("blue")
-    #
-    #         # 종목은 WorkingOrder 에 없으면 나중에 symbol 필드 추가해서 쓰면 됨
-    #         symbol = getattr(wo, "symbol", "")
-    #
-    #         # 주문 시간
-    #         import time
-    #         tm_str = ""
-    #         if wo.created_at:
-    #             tm_str = time.strftime("%H:%M:%S", time.localtime(wo.created_at))
-    #
-    #         # ✅ 0번 컬럼: QCheckBox 위젯
-    #         chk = QCheckBox()
-    #         chk.setChecked(False)
-    #         chk.setStyleSheet("margin-left:auto; margin-right:auto;")
-    #         chk.isEnabled()
-    #         t.setCellWidget(row, 0, chk)
-    #
-    #         items = [
-    #             QTableWidgetItem(str(wo.id)),          # 주문ID
-    #             QTableWidgetItem(symbol),              # 종목
-    #             QTableWidgetItem(wo.side.side),        # 매도/매수 (Side enum 기준)
-    #             QTableWidgetItem(f"{wo.price:,.2f}"),  # 가격
-    #             QTableWidgetItem(str(wo.qty)),         # 총수량
-    #             QTableWidgetItem(str(wo.remaining)),   # 잔량
-    #             QTableWidgetItem(tm_str),              # 주문시간
-    #         ]
-    #
-    #         for col, item in enumerate(items, start=1):
-    #             if col in (1, 2, 3, 7):  # ID, 종목, 방향, 시간
-    #                 align = QtAlignCenter
-    #             else:                    # 가격, 수량, 잔량
-    #                 align = QtAlignRight | QtAlignVCenter
-    #             item.setTextAlignment(align)
-    #
-    #             if col in (3, 4, 5, 6):  # 방향/가격/수량/잔량에 색 적용
-    #                 item.setForeground(QtGui.QBrush(color))
-    #
-    #             t.setItem(row, col, item)
-    #
-    #     t.resizeColumnsToContents()
-    #     t.setColumnWidth(0, 24)
-
-    def render_from_db(self, rows):
+    # --------------------------------------------------------
+    # 렌더링
+    # --------------------------------------------------------
+    def render_from_api(self, rows):
         """
-        DB에서 읽은 미체결 주문 리스트를 테이블에 표시.
-        기대 컬럼:
-          id, symbol, side, price, qty, remaining_qty, created_at
-        (psycopg2.extras.DictRow 또는 dict/tuple 모두 대응)
+        rows =
+          case1: [{"id":1, "symbol":"SOL", ...}, ...]  ← dict
+          case2: [(1, "SOL", "BUY", 100, 10, 5, "2025-01-01"), ...] ← tuple/list
         """
         t = self.table
         t.clearContents()
@@ -164,75 +52,94 @@ class ReadyOrdersTable:
 
         t.setRowCount(len(rows))
 
-        import datetime
-
         for r, row in enumerate(rows):
-            # DictRow / dict / tuple 모두 처리
             try:
-                if hasattr(row, "keys"):  # DictRow or dict
-                    oid      = row.get("id")
-                    symbol   = row.get("symbol", "")
-                    side     = str(row.get("side", "")).upper()
-                    price    = float(row.get("price", 0.0))
-                    qty      = float(row.get("qty", 0.0))
-                    remaining= float(row.get("remaining_qty", 0.0))
-                    ctime    = row.get("created_at")
+                # ------------------------------
+                # 1) dict 타입
+                # ------------------------------
+                if isinstance(row, dict):
+                    oid = row.get("id", "")
+                    symbol = row.get("symbol", "")
+                    side = str(row.get("side", "")).upper()
+                    price = float(row.get("price", 0.0))
+                    qty = float(row.get("qty", 0.0))
+                    remain = float(row.get("remaining_qty", 0.0))
+                    created = row.get("created_at", "")
+
+                # ------------------------------
+                # 2) list/tuple 타입 (컬럼 순서 예상)
+                # ------------------------------
                 else:
-                    # SELECT id, symbol, side, price, qty, remaining_qty, created_at 순서라고 가정
-                    oid, symbol, side, price, qty, remaining, ctime = row
+                    # 예: SELECT id, symbol, side, price, qty, remaining_qty, created_at
+                    (
+                        oid,
+                        symbol,
+                        side,
+                        price,
+                        qty,
+                        remain,
+                        created,
+                    ) = row
+
                     side = str(side).upper()
                     price = float(price)
                     qty = float(qty)
-                    remaining = float(remaining)
+                    remain = float(remain)
 
-                # 주문 시간 문자열
-                if isinstance(ctime, (datetime.datetime, datetime.time)):
-                    tm_str = ctime.strftime("%H:%M:%S")
-                else:
-                    tm_str = str(ctime or "")
-
-                # 색상: BUY=빨강, SELL=파랑
-                color = QtGui.QColor("red") if side == "BUY" else QtGui.QColor("blue")
-
+                # =============================
+                # 체크박스
+                # =============================
                 chk = QCheckBox()
-                chk.setChecked(False)
+                chk_widget = QtWidgets.QWidget()
+                layout = QtWidgets.QHBoxLayout(chk_widget)
+                layout.addWidget(chk)
+                layout.setAlignment(QtAlignVCenter)
+                layout.setContentsMargins(0, 0, 0, 0)
+                t.setCellWidget(r, 0, chk_widget)
 
-                chk.setStyleSheet("margin-left:auto; margin-right:auto;")
-                t.setCellWidget(r, 0, chk)
-
+                # =============================
+                # 일반 항목들
+                # =============================
                 items = [
-                    QTableWidgetItem(str(oid)),              # 주문ID
-                    QTableWidgetItem(symbol),                # 종목
-                    QTableWidgetItem(side),                  # 매도/매수
-                    QTableWidgetItem(f"{price:,.2f}"),       # 가격
-                    QTableWidgetItem(f"{qty:,.4f}"),         # 총수량
-                    QTableWidgetItem(f"{remaining:,.4f}"),   # 잔량
-                    QTableWidgetItem(tm_str),                # 주문시간
+                    QTableWidgetItem(str(oid)),
+                    QTableWidgetItem(symbol),
+                    QTableWidgetItem(side),
+                    QTableWidgetItem(f"{price:,.2f}"),
+                    QTableWidgetItem(f"{qty:,.4f}"),
+                    QTableWidgetItem(f"{remain:,.4f}"),
+                    QTableWidgetItem(str(created)),
                 ]
 
-                for col, item in enumerate(items, start=1):
-                    if col in (1, 2, 3, 7):  # ID, 종목, 방향, 시간
-                        align = QtAlignCenter
-                    else:                    # 가격, 수량, 잔량
-                        align = QtAlignRight | QtAlignVCenter
-                    item.setTextAlignment(align)
-
-                    if col in (3, 4, 5, 6):
-                        item.setForeground(QtGui.QBrush(color))
-
-                    # ✅ 편집 불가로 플래그 조정
-                    flags = item.flags()
-                    if _QT6:
-                        flags &= ~Qt.ItemFlag.ItemIsEditable
+                for c, item in enumerate(items, start=1):
+                    if c in (4, 5, 6):
+                        item.setTextAlignment(QtAlignRight | QtAlignVCenter)
                     else:
-                        flags &= ~Qt.ItemIsEditable
-                    item.setFlags(flags)
-
-                    t.setItem(r, col, item)
+                        item.setTextAlignment(QtAlignCenter)
+                    t.setItem(r, c, item)
 
             except Exception as e:
-                print(f"[ReadyOrdersTable] row {r} render error:", e)
-                continue
+                print("[ReadyOrdersTable] row render error:", e)
 
-        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        apply_header_style(self.table, BLUE_HEADER)
+        apply_header_style(t, BLUE_HEADER)
+
+    # --------------------------------------------------------
+    # 선택된 주문 조회
+    # --------------------------------------------------------
+    def get_checked_order_ids(self):
+        """체크된 row 의 order_id 리스트 반환"""
+        ids = []
+        t = self.table
+
+        for r in range(t.rowCount()):
+            widget = t.cellWidget(r, 0)
+            if widget:
+                chk = widget.findChild(QCheckBox)
+                if chk and chk.isChecked():
+                    oid_item = t.item(r, 1)  # 주문ID
+                    if oid_item:
+                        try:
+                            ids.append(int(oid_item.text()))
+                        except:
+                            pass
+
+        return ids

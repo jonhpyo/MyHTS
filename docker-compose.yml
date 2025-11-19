@@ -18,7 +18,7 @@ services:
     container_name: myhts-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@local
+      PGADMIN_DEFAULT_EMAIL: admin@local.com
       PGADMIN_DEFAULT_PASSWORD: admin
       TZ: Asia/Seoul
     ports:
