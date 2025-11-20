@@ -34,7 +34,7 @@ class MarketDataService:
     def __init__(
         self,
         use_mock: bool = False,
-        provider: str = "LOCAL",        # LOCAL or BINANCE
+        provider: str = "BINANCE",        # LOCAL or BINANCE
         symbol: str = "SOLUSDT",
         rows: int = 10,
         api_base: str = "http://127.0.0.1:9000"
@@ -81,19 +81,18 @@ class MarketDataService:
         symbol = self._symbol
 
         try:
-            url = f"{self.api_base}/orderbook/{symbol}"
-            res = requests.get(url, timeout=0.5)
+            url = f"{self.api_base}/orderbook"
+            res = requests.get(url, params={"symbol": symbol}, timeout=0.5)
 
             if res.status_code != 200:
                 print("[MarketDataService] local depth error", res.text)
                 return None
 
-            data = res.json()  # {symbol, bids:[{price,qty}], asks:[...]}
+            data = res.json()  # {bids:[...], asks:[...]}
 
             bids_raw = data.get("bids", [])
             asks_raw = data.get("asks", [])
 
-            # UI 호환 형태로 변환 (level index 포함)
             bids = [(float(x["price"]), float(x["qty"]), i) for i, x in enumerate(bids_raw)]
             asks = [(float(x["price"]), float(x["qty"]), i) for i, x in enumerate(asks_raw)]
 
@@ -114,7 +113,7 @@ class MarketDataService:
         """
         try:
             url = f"https://api.binance.com/api/v3/depth?symbol={self._symbol}&limit={self.rows}"
-            res = requests.get(url, timeout=0.7)
+            res = requests.get(url, timeout=3.0)
             if res.status_code != 200:
                 print("[MarketDataService] binance error", res.text)
                 return None
@@ -182,3 +181,15 @@ class MarketDataService:
         if not depth:
             return {}
         return {self._symbol: depth.mid}
+
+    def get_mid_price(self):
+        depth = self.fetch_depth()
+
+        if not depth or not depth.bids or not depth.asks:
+            return None
+
+        best_bid = depth.bids[0][0]  # (price, qty, level)
+        best_ask = depth.asks[0][0]
+
+        return (best_bid + best_ask) / 2
+

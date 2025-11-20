@@ -3,13 +3,17 @@ import os
 from pathlib import Path
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtCore import QTimer
-
+from PyQt6.QtWidgets import QMessageBox
+from widgets.TradePanel import TradePanel
 # ---- Controllers / Services ----
 from controllers.auth_controller_api import AuthControllerAPI
 from controllers.orderbook_controller import OrderBookController
+from controllers.orderbook_controller_api import OrderBookControllerAPI
 from controllers.order_controller_api import OrdersControllerAPI
 from controllers.account_controller_api import AccountControllerAPI
 from controllers.trade_controller_api import TradeControllerAPI
+from controllers.orderbook_api import OrderBookAPI
+from controllers.orderbook_api_client import OrderBookAPIClient
 
 from services.marketdata_service import MarketDataService
 
@@ -38,11 +42,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # --- UI 파일 로드 ---
         RES_DIR = Path(__file__).resolve().parents[1] / "resources"
         ui_file = RES_DIR / "nasdaq_extended.ui"
+        # ui_file = RES_DIR / "nasdaq_extended_with_trade_layout.ui"
         if not ui_file.exists():
             raise FileNotFoundError(f"UI file not found: {ui_file}")
 
         uic.loadUi(str(ui_file), self)
-        self.setWindowTitle("NASDAQ EXTENDED")
+        self.setWindowTitle("EXTENDED")
 
         depth_levels = 10
 
@@ -51,6 +56,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.orderApi = OrdersControllerAPI()
         self.accountApi = AccountControllerAPI()
         self.tradeApi = TradeControllerAPI()
+        self.orderBookApi = OrderBookAPIClient()
 
         # Market Data
         self.md = MarketDataService(
@@ -72,16 +78,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self._ensure_ready_orders_widget()
         self._ensure_balance_widget()
 
+        # tradePanel = TradePanel(self.trades.table)
+        # self.trade_layout.addWidget(tradePanel)
+
         # --- 컨트롤러 연결 ---
         self.ctrl = OrderBookController(
-            md_service=self.md,
-            orderbook_widget=self.orderbook,
-            trades_widget=self.trades,
-            balance_table=self.balance_table,
-            api_order=self.orderApi,
-            api_account=self.accountApi,
-            api_trade=self.tradeApi,
-            auth=self.authApi,
+            self.md,
+            self.orderbook,
+            self.trades,
+            self.balance_table,
+            self.orderApi,
+            self.accountApi,
+            self.tradeApi,
+            self.orderBookApi,
+            self.authApi
         )
 
         # --- 버튼 핸들러 연결 ---
@@ -100,6 +110,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._on_timer)
         self.timer.start(200)
+
+    def _update_orderbook(self):
+        symbol = self.md.current_symbol().upper()
+        data = self.orderBookApi.get_depth(symbol)
+        self.orderbook.render_from_api(data)
 
     # --------------------------------------------------------
     # 심볼 선택기
@@ -126,19 +141,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if not sym:
             return
 
-        # MarketDataService에 전달
-        self.md.set_symbol(sym.lower())
+        # MarketDataService에도 반드시 대문자로 전달!
+        self.md.set_symbol(sym)
 
         # UI 초기화
         try:
-            self.orderbook.set_orderbook([], [], 0.0)
+            self.orderbook.render_from_api([], [])
         except Exception:
             pass
 
         self.trades.trades.clear()
+
+        # Trade 로드
         self._load_trades_from_api()
 
-        # 강제 한 번 depth 갱신
+        # 강제 depth 갱신
         self.ctrl.poll_and_render()
 
         email = (self.authApi.current_user.get("email")
@@ -150,24 +167,29 @@ class MainWindow(QtWidgets.QMainWindow):
     # --------------------------------------------------------
     def _ensure_ready_orders_widget(self):
         tabw = getattr(self, "table_ready_trades", None)
-        table = None
+        if not isinstance(tabw, QtWidgets.QTabWidget):
+            raise RuntimeError("table_ready_trades(QTabWidget)을 찾을 수 없음")
 
-        if isinstance(tabw, QtWidgets.QTabWidget):
-            # 첫 탭의 layout 에 QTableWidget 넣기
-            if tabw.count() == 0:
-                container = QtWidgets.QWidget()
-                container.setLayout(QtWidgets.QVBoxLayout())
-                tabw.addTab(container, "미체결")
-            else:
-                container = tabw.widget(0)
-                if container.layout() is None:
-                    container.setLayout(QtWidgets.QVBoxLayout())
+        ready_trades_page = tabw.findChild(QtWidgets.QWidget, "tab_ready_trades")
 
-            table = container.findChild(QtWidgets.QTableWidget, "tap_ready_trades")
-            if table is None:
-                table = QtWidgets.QTableWidget(container)
-                table.setObjectName("tap_ready_trades")
-                container.layout().addWidget(table)
+        if ready_trades_page is None:
+            for i in range(tabw.count()):
+                if tabw.tabText(i) == "미체결":
+                    ready_trades_page = tabw.widget(i)
+                    ready_trades_page.setObjectName("tab_ready_trades")
+                    break
+
+        if ready_trades_page is None:
+            ready_trades_page = QtWidgets.QWidget()
+            ready_trades_page.setObjectName("tab_ready_trades")
+            ready_trades_page.setLayout(QtWidgets.QVBoxLayout())
+            tabw.addTab(ready_trades_page, "미체결")
+
+        table = ready_trades_page.findChild(QtWidgets.QTableWidget, "tab_ready_trades")
+        if table is None:
+            table = QtWidgets.QTableWidget(ready_trades_page)
+            table.setObjectName("tab_ready_trades")
+            ready_trades_page.layout().addWidget(table)
 
         self.ready_orders = ReadyOrdersTable(table)
 
@@ -208,7 +230,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_timer(self):
         self.ctrl.poll_and_render()
         self._refresh_balance()
+        # self._update_orderbook()
         self._reload_working_orders()
+        # self._refresh_orders_and_trades()
 
     # --------------------------------------------------------
     # 로그인
@@ -234,6 +258,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._apply_login_ui()
                 QtWidgets.QMessageBox.information(self, "Login", f"Welcome, {user}!")
                 self._load_trades_from_api()
+                self._reload_working_orders()
+
             else:
                 QtWidgets.QMessageBox.warning(self, "Login", "계정 정보가 올바르지 않습니다.")
 
@@ -334,14 +360,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_cancel_selected_orders(self):
         order_ids = self.ready_orders.get_checked_order_ids()
         if not order_ids:
-            QtWidgets.QMessageBox.information(self, "취소", "선택된 주문이 없습니다.")
+            QMessageBox.information(self, "안내", "취소할 주문을 선택하세요.")
             return
 
         reply = QtWidgets.QMessageBox.question(
             self, "일괄 취소", f"{len(order_ids)}건의 주문을 취소하시겠습니까?",
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
-        if reply != QtWidgets.QMessageBox.Yes:
+
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         self.orderApi.cancel_orders(order_ids)
@@ -370,30 +398,19 @@ class MainWindow(QtWidgets.QMainWindow):
         user_id = user.get("user_id")
 
         working = self.orderApi.get_user_working_orders(user_id)
-        trades = self.tradeApi.get_trades(user_id)
+        trades = self.tradeApi.get_trades()
 
         self.ready_orders.render_from_api(working)
         self.trades.render_from_api(trades)
 
-    def _load_trades_from_api(self, api_url="http://127.0.0.1:9000/"):
+    def _load_trades_from_api(self):
         token = self.authApi.access_token
         if not token:
             QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
             return
 
-        import requests
-
         try:
-            url = f"{api_url}/trades/my?limit=100"
-            res = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=5)
-            if res.status_code != 200:
-                QtWidgets.QMessageBox.warning(
-                    self, "Error",
-                    f"/trades/my 조회 실패\nstatus={res.status_code}\n{res.text}"
-                )
-                return
-
-            rows = res.json()
+            rows = self.tradeApi.get_trades()
             self.trades.render_from_api(rows)
 
         except Exception as e:
@@ -446,7 +463,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self._do_login()
 
     def _open_account_dialog(self):
-        dlg = OpenAccountDialog(None, self)
+        token = self.authApi.access_token
+        if not token:
+            QtWidgets.QMessageBox.warning(self, "Login", "먼저 로그인하세요.")
+            return
+        user = self.authApi.current_user
+        dlg = OpenAccountDialog(user.get("user_id"),
+                                accountApi=self.accountApi,
+                                parent=self,
+                                )
         dlg.exec()
 
     def _open_signup_dialog(self):
@@ -459,7 +484,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # --------------------------------------------------------
     def closeEvent(self, e):
         self.timer.stop()
-        self.md.close()
+        # self.md.close()
         super().closeEvent(e)
 
 

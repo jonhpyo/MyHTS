@@ -3,7 +3,7 @@ import hashlib
 
 from typing import Optional, Dict, Any
 import requests
-from services.db_service import DBService
+# from services.db_service import DBService
 
 
 class AuthControllerAPI:

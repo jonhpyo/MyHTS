@@ -1,6 +1,5 @@
 # services/matching_engine.py
 import psycopg2.extras
-from services.db_service import DBService
 
 
 

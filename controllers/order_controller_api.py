@@ -87,3 +87,41 @@ class OrdersControllerAPI:
         except Exception as e:
             print("[OrdersAPI] get_user_working_orders error:", e)
             return []
+
+    def update_orderbook(self, symbol):
+        url = f"{self.api_url}/orderbook"
+        params = {"symbol": symbol}
+
+        try:
+            r = requests.get(url, params=params, timeout=3)
+            if r.status_code == 200:
+                return r.json()
+
+            print("[OrderbookAPI] error:", r.text)
+            return {"bids": [], "asks": []}
+
+        except Exception as e:
+            print("[OrderbookAPI] exception:", e)
+            return {"bids": [], "asks": []}
+
+    def get_depth(self, symbol):
+        url = f"{self.api_url}/orderbook/merged"
+        params = {"symbol": symbol}
+
+        try:
+            r = requests.get(url, params=params, timeout=1)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            print("[OrderbookAPI] error:", e)
+            return {"bids": [], "asks": []}
+
+    def get_local_orderbook(self, symbol):
+        url = f"{self.api_url}/orderbook/local"
+        try:
+            r = requests.get(url, params={"symbol": symbol}, headers=self._headers(), timeout=3)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            print("[OrdersAPI] get_local_orderbook error:", e)
+            return {"bids": [], "asks": []}

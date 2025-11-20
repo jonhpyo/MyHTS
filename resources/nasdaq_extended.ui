@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>2125</width>
-    <height>1076</height>
+    <height>1027</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -277,7 +277,7 @@
        <item>
         <widget class="QTabWidget" name="table_ready_trades">
          <property name="currentIndex">
-          <number>1</number>
+          <number>2</number>
          </property>
          <widget class="QWidget" name="tab">
           <attribute name="title">
@@ -285,7 +285,7 @@
           </attribute>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
-            <widget class="QTableWidget" name="tableWidget_6">
+            <widget class="QTableWidget" name="tab_all_trades">
              <column>
               <property name="text">
                <string>구분</string>
@@ -334,90 +334,13 @@
           <attribute name="title">
            <string>잔고</string>
           </attribute>
-          <layout class="QGridLayout" name="gridLayout_2">
-           <item row="0" column="0">
-            <widget class="QTableWidget" name="SimAccount">
-             <column>
-              <property name="text">
-               <string>New Column</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>New Column</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>New Column</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>New Column</string>
-              </property>
-             </column>
-            </widget>
-           </item>
-          </layout>
+          <layout class="QGridLayout" name="gridLayout_2"/>
          </widget>
          <widget class="QWidget" name="tab_3">
           <attribute name="title">
            <string>미체결</string>
           </attribute>
-          <layout class="QHBoxLayout" name="horizontalLayout_2">
-           <item>
-            <widget class="QTableWidget" name="tap_ready_trades">
-             <property name="maximumSize">
-              <size>
-               <width>958</width>
-               <height>16777215</height>
-              </size>
-             </property>
-             <column>
-              <property name="text">
-               <string>시간</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>주문ID</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>종류</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>매도/매수</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>가격</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>수량</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>상태</string>
-              </property>
-             </column>
-             <column/>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="tab_4">
-          <attribute name="title">
-           <string>예약</string>
-          </attribute>
+          <layout class="QHBoxLayout" name="horizontalLayout_2"/>
          </widget>
         </widget>
        </item>

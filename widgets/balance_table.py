@@ -32,7 +32,6 @@ class BalanceTable:
     def render_summary(self, balance: float, total_pl: float):
         """상단 제목줄을 갱신하거나 별도 QLabel에 표시"""
         # print(f"[BalanceTable] 💰현금: {balance:,.0f} / 평가손익합계: {total_pl:+,.0f}")
-        print('--balance--line:34')
 
     def render_from_summary(self, summary: dict, md_service):
         """

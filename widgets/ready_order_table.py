@@ -13,26 +13,23 @@ class ReadyOrdersTable:
     - DB/REST API에서 받아온 row 포맷을 자동 처리
     """
 
-    HEADERS = ["", "주문ID", "종목", "매수/매도", "가격", "주문수량", "잔량", "시간"]
-
-    def __init__(self, table: QTableWidget):
+    def __init__(self, table: QtWidgets.QTableWidget):
         self.table = table
         self._init_ui()
 
-    # --------------------------------------------------------
-    # UI 초기화
-    # --------------------------------------------------------
     def _init_ui(self):
         t = self.table
-        t.setColumnCount(len(self.HEADERS))
-        t.setHorizontalHeaderLabels(self.HEADERS)
-        t.verticalHeader().setVisible(False)
-
-        # 스타일
+        headers = ["", "주문ID", "종목", "매수/매도", "가격", "주문수량", "잔량", "시간"]
+        t.setColumnCount(len(headers))
+        t.setHorizontalHeaderLabels(headers)
         apply_header_style(t, BLUE_HEADER)
-        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        t.verticalHeader().setVisible(False)
         t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        t.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        t.setAlternatingRowColors(True)
+
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        apply_header_style(self.table, BLUE_HEADER)
 
     # --------------------------------------------------------
     # 렌더링

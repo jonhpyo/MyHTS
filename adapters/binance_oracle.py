@@ -39,7 +39,7 @@ class BinanceOracle:
         if self._thread:
             self._thread.join(timeout=timeout)
 
-    def get_depth(self, levels: Optional[int] = None) -> Optional[DepthSnapshot]:
+    def get_binance_depth(self, levels: Optional[int] = None) -> Optional[DepthSnapshot]:
         """
         최신 호가를 DepthSnapshot으로 반환. (없으면 None)
         """
